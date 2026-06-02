@@ -108,13 +108,13 @@
 
   /* ---------- Gallery / page scroll + tracking scrollbar ----------
      Desktop: the right-half gallery (.work) scrolls (wheel-smoothed). Stacked
-     (<=1340px): the whole canvas scrolls as one page. The right-edge scrollbar
+     (<=1240px): the whole canvas scrolls as one page. The right-edge scrollbar
      tracks whichever is the active scroller and can be dragged. */
   const work = document.querySelector(".work");
   const canvas = document.querySelector(".canvas");
   const vThumb = document.querySelector(".scroll-v__thumb");
   const vTrack = document.querySelector(".scroll-v");
-  const isStacked = () => window.matchMedia("(max-width: 1340px)").matches;
+  const isStacked = () => window.matchMedia("(max-width: 1240px)").matches;
   const scroller = () => (isStacked() ? canvas : work);
 
   function updateThumb() {
@@ -151,13 +151,16 @@
   }
 
   // One scroll handler for the active scroller: keep the thumb in sync, and in
-  // fullscreen reveal the title bar when scrolling up (touch path to exit).
+  // fullscreen reveal the title bar when scrolling up. That reveal is the TOUCH
+  // exit path only — on mouse/desktop you exit via the cursor-to-top dwell, so
+  // it's gated to stacked/coarse-pointer (no bar popping in on desktop scroll).
+  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
   let lastTop = 0;
   function onScroll() {
     const sc = scroller();
     const st = sc ? sc.scrollTop : 0;
     if (!isStacked() && !ticking) target = st;
-    if (body.classList.contains("is-full")) {
+    if (body.classList.contains("is-full") && (isStacked() || coarsePointer)) {
       if (st <= 0 || st < lastTop - 1) body.classList.add("bar-peek");
       else if (st > lastTop + 1) body.classList.remove("bar-peek");
     }
@@ -179,6 +182,9 @@
       let pos = clientY - vTrack.getBoundingClientRect().top - grabOffset;
       pos = Math.max(0, Math.min(usable, pos));
       sc.scrollTop = (pos / usable) * (sc.scrollHeight - sc.clientHeight);
+      // Dragging wins over the wheel-smoothing loop: sync its target so step()
+      // converges to where you dragged instead of snapping the gallery back.
+      if (!isStacked()) target = sc.scrollTop;
       updateThumb();
     }
     vTrack.addEventListener("mousedown", (e) => {
@@ -245,6 +251,12 @@
   }
   if (closeBtn) closeBtn.addEventListener("click", closeWindow);
   if (dockApp) dockApp.addEventListener("click", openWindow);
+  // Failsafe reopen on touch: tapping the centre message also reopens, in case
+  // the bottom dock is obscured by the mobile browser's toolbar/home indicator.
+  const closedMsg = document.querySelector(".closed-msg");
+  if (closedMsg) closedMsg.addEventListener("click", () => {
+    if (touchLike() && body.classList.contains("is-closed")) openWindow();
+  });
   /* Dock reveals fast and over a generous zone — the whole window is gone
      when closed, so there's no reason to make it precise/slow. */
   let dArmed = false;
