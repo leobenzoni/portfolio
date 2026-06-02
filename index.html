@@ -3,10 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Leonardo Benzoni</title>
+  <title>Leo Benzoni</title>
+  <link rel="icon" type="image/png" href="assets/favicon.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- Dead-centre of the viewport, behind the window. Only seen once the
+       window is closed to the dock. Tapping it reopens (touch path). -->
+  <p class="closed-msg" aria-hidden="true">Why would you close it?</p>
+  <!-- Cursor hint: appears a few seconds after closing, on desktop only. -->
+  <span class="closed-hint" aria-hidden="true">
+    <svg viewBox="0 0 16 16" width="16" height="16">
+      <path d="M4 6 L8 10 L12 6" stroke="currentColor" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </span>
+
   <main class="window" aria-label="leonardo benzoni portfolio">
 
     <!-- Title bar: old-Photoshop document window.
@@ -15,9 +26,27 @@
          baked into the name (img + DDMMYY). -->
     <header class="titlebar">
       <div class="lights">
-        <button class="light light--close" type="button" aria-label="close"></button>
-        <button class="light light--toggle" type="button" aria-label="toggle dark mode"></button>
-        <button class="light light--full" type="button" aria-label="fullscreen"></button>
+        <button class="light light--close" type="button" aria-label="close">
+          <svg class="light__glyph" viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M3.6 3.6 L8.4 8.4 M8.4 3.6 L3.6 8.4" fill="none" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="light light--toggle" type="button" aria-label="toggle dark mode">
+          <svg class="light__glyph" viewBox="0 0 12 12" aria-hidden="true">
+            <mask id="moonbite">
+              <rect width="12" height="12" fill="#000"/>
+              <circle cx="6" cy="6" r="3.5" fill="#fff"/>
+              <circle cx="7.9" cy="4.1" r="3.2" fill="#000"/>
+            </mask>
+            <rect width="12" height="12" fill="currentColor" mask="url(#moonbite)"/>
+          </svg>
+        </button>
+        <button class="light light--full" type="button" aria-label="fullscreen">
+          <svg class="light__glyph" viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M3.1 3.1 L7 3.1 L3.1 7 Z"/>
+            <path d="M8.9 8.9 L5 8.9 L8.9 5 Z"/>
+          </svg>
+        </button>
       </div>
 
       <div class="titlebar__title">
@@ -33,11 +62,11 @@
          gallery fills the right half and scrolls; a Photoshop-style
          vertical scrollbar sits on the right edge. -->
     <section class="canvas">
-      <p class="name" contenteditable="true" spellcheck="false" aria-label="name (editable)">LEONARDO BENZONI&nbsp;</p>
+      <p class="name" aria-label="Leonardo Benzoni">LEONARDO BENZONI&nbsp;</p>
 
       <div class="meta">
         <p class="role">Head of Innovation and Brand Designer at <a href="https://nonstopbrandingagency.com/" target="_blank" rel="noopener">Nonstop</a>.</p>
-        <p class="tagline">I create cool stuff with cool people.</p>
+        <p class="tagline">I combine new technologies with the love for design.</p>
       </div>
 
       <nav class="socials" aria-label="links">
@@ -63,9 +92,6 @@
         <div class="work__tile"></div>
         <div class="work__tile"></div>
       </div>
-
-      <!-- Vertical scrollbar (right edge). Thumb tracks the gallery scroll. -->
-      <div class="scroll-v" aria-hidden="true"><span class="scroll-v__thumb"></span></div>
     </section>
 
     <!-- Status bar: Photoshop zoom + doc-size widgets, then a horizontal
@@ -79,6 +105,11 @@
       </span>
       <span class="statusbar__scroll"><span class="statusbar__thumb"></span></span>
     </footer>
+
+    <!-- Vertical scrollbar pinned to the window's right edge. Its thumb tracks
+         the active scroller (the gallery on desktop, the whole canvas when
+         stacked) and can be dragged. -->
+    <div class="scroll-v" aria-hidden="true"><span class="scroll-v__thumb"></span></div>
 
   </main>
 

@@ -35,45 +35,55 @@
     setInterval(setDate, 30000);
   }
 
-  /* ---------- Editable name ----------
-     Native caret hidden; the blinking ::after stroke is the only cursor
-     and is pinned to the end (focus/click jump there, arrows blocked).
-     Single line, plain-text paste. */
+  /* ---------- Animated name (display only) ----------
+     Not editable. Every 5s it deletes back to "LEO" and retypes the other
+     form, toggling LEONARDO BENZONI <-> LEO BENZONI. The blinking ::after
+     caret rides at the end and sells the typing effect. */
   const nameEl = document.querySelector(".name");
   if (nameEl) {
-    const caretToEnd = () => {
-      const range = document.createRange();
-      range.selectNodeContents(nameEl);
-      range.collapse(false);
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
-    };
-    const NAV_KEYS = new Set([
-      "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End",
-    ]);
-    nameEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || NAV_KEYS.has(e.key)) e.preventDefault();
-    });
-    nameEl.addEventListener("focus", () => requestAnimationFrame(caretToEnd));
-    nameEl.addEventListener("click", caretToEnd);
-    nameEl.addEventListener("paste", (e) => {
-      e.preventDefault();
-      const text = (e.clipboardData || window.clipboardData).getData("text");
-      document.execCommand("insertText", false, text.replace(/\s+/g, " "));
-    });
+    // FLOOR = the name + its one trailing space; never deletable. Visitors
+    // type/delete freely after it. Deletes that reach into the floor are
+    // clamped back to it (so Cmd-backspace and select-all + delete just leave
+    // the original name) rather than blocked.
+    const FLOOR = nameEl.textContent;            // "LEONARDO BENZONI "
+    const FULL = FLOOR.replace(/ +$/, "");  // "LEONARDO BENZONI"
+    const TAIL = FLOOR.slice(FULL.length);   // the trailing space (kept so the caret stays put)
+    const SHORT = "LEO BENZONI";
+    let showingFull = true;
 
-    // Always typeable: a printable keystroke anywhere starts typing into
-    // the name (the only editable thing), so it feels permanently active —
-    // matching the always-visible blinking caret.
-    document.addEventListener("keydown", (e) => {
-      if (document.activeElement === nameEl) return;
-      if (e.metaKey || e.ctrlKey || e.altKey || e.key.length !== 1) return;
-      e.preventDefault();
-      nameEl.focus();
-      caretToEnd();
-      document.execCommand("insertText", false, e.key);
-    });
+    const setName = (s) => { nameEl.textContent = s; };
+    const bareName = () => {
+      const t = nameEl.textContent;
+      // Strip only the trailing space (TAIL); keep spaces inside the text being
+      // animated, e.g. the one in "LEO BENZONI".
+      return t.endsWith(TAIL) ? t.slice(0, t.length - TAIL.length) : t.replace(/\s+$/, "");
+    };
+    const commonLen = (a, b) => {
+      let i = 0;
+      while (i < a.length && i < b.length && a[i] === b[i]) i++;
+      return i;
+    };
+    function animateTo(targetName, done) {
+      const common = commonLen(bareName(), targetName);
+      const del = () => {
+        const c = bareName();
+        if (c.length > common) { setName(c.slice(0, -1) + TAIL); setTimeout(del, 45); }
+        else typeUp();
+      };
+      const typeUp = () => {
+        const c = bareName();
+        if (c.length < targetName.length) { setName(targetName.slice(0, c.length + 1) + TAIL); setTimeout(typeUp, 60); }
+        else if (done) done();
+      };
+      del();
+    }
+    function loop() {
+      animateTo(showingFull ? SHORT : FULL, () => {
+        showingFull = !showingFull;
+        setTimeout(loop, 5000);
+      });
+    }
+    setTimeout(loop, 5000);
   }
 
   /* ---------- Cursor-driven window shadow ---------- */
@@ -96,50 +106,97 @@
     }, { passive: true });
   }
 
-  /* ---------- Gallery: smooth scroll + tracking scrollbar ----------
-     The visible right-edge scrollbar mirrors the gallery's scroll
-     (Photoshop-style); the gallery's own scrollbar is hidden in CSS. */
+  /* ---------- Gallery / page scroll + tracking scrollbar ----------
+     Desktop: the right-half gallery (.work) scrolls (wheel-smoothed). Stacked
+     (<=1340px): the whole canvas scrolls as one page. The right-edge scrollbar
+     tracks whichever is the active scroller and can be dragged. */
   const work = document.querySelector(".work");
+  const canvas = document.querySelector(".canvas");
   const vThumb = document.querySelector(".scroll-v__thumb");
   const vTrack = document.querySelector(".scroll-v");
+  const isStacked = () => window.matchMedia("(max-width: 1340px)").matches;
+  const scroller = () => (isStacked() ? canvas : work);
 
   function updateThumb() {
-    if (!work || !vThumb || !vTrack) return;
+    if (!vThumb || !vTrack) return;
+    const sc = scroller();
+    if (!sc) return;
     const track = vTrack.clientHeight;
-    const ratio = Math.min(1, work.clientHeight / work.scrollHeight);
+    const ratio = Math.min(1, sc.clientHeight / sc.scrollHeight);
     const thumbH = Math.max(28, Math.round(track * ratio));
-    const maxScroll = work.scrollHeight - work.clientHeight;
-    const pos = maxScroll > 0 ? (work.scrollTop / maxScroll) * (track - thumbH) : 0;
+    const maxScroll = sc.scrollHeight - sc.clientHeight;
+    const pos = maxScroll > 0 ? (sc.scrollTop / maxScroll) * (track - thumbH) : 0;
     vThumb.style.height = thumbH + "px";
     vThumb.style.top = pos + "px";
   }
 
+  // Smooth wheel scrolling for the desktop gallery. When stacked, the canvas
+  // scrolls natively so touch + trackpad behave normally.
+  let target = work ? work.scrollTop : 0;
+  let ticking = false;
+  function step() {
+    const diff = target - work.scrollTop;
+    if (Math.abs(diff) < 0.5) { work.scrollTop = target; ticking = false; return; }
+    work.scrollTop += diff * 0.2;
+    requestAnimationFrame(step);
+  }
   if (work && window.matchMedia("(pointer: fine)").matches) {
-    let target = work.scrollTop;
-    let ticking = false;
-    function step() {
-      const diff = target - work.scrollTop;
-      if (Math.abs(diff) < 0.5) {
-        work.scrollTop = target;
-        ticking = false;
-        return;
-      }
-      work.scrollTop += diff * 0.2;
-      requestAnimationFrame(step);
-    }
     work.addEventListener("wheel", (e) => {
+      if (isStacked()) return;
       e.preventDefault();
       const max = work.scrollHeight - work.clientHeight;
       target = Math.max(0, Math.min(max, target + e.deltaY));
       if (!ticking) { ticking = true; requestAnimationFrame(step); }
     }, { passive: false });
-    work.addEventListener("scroll", () => {
-      if (!ticking) target = work.scrollTop;
-      updateThumb();
-    }, { passive: true });
   }
+
+  // One scroll handler for the active scroller: keep the thumb in sync, and in
+  // fullscreen reveal the title bar when scrolling up (touch path to exit).
+  let lastTop = 0;
+  function onScroll() {
+    const sc = scroller();
+    const st = sc ? sc.scrollTop : 0;
+    if (!isStacked() && !ticking) target = st;
+    if (body.classList.contains("is-full")) {
+      if (st <= 0 || st < lastTop - 1) body.classList.add("bar-peek");
+      else if (st > lastTop + 1) body.classList.remove("bar-peek");
+    }
+    lastTop = st;
+    updateThumb();
+  }
+  if (work) work.addEventListener("scroll", onScroll, { passive: true });
+  if (canvas) canvas.addEventListener("scroll", onScroll, { passive: true });
   window.addEventListener("resize", updateThumb, { passive: true });
   updateThumb();
+
+  /* Drag the scrollbar thumb (or click the track) to scroll the active area. */
+  if (vThumb && vTrack && window.matchMedia("(pointer: fine)").matches) {
+    let dragging = false, grabOffset = 0;
+    function applyDrag(clientY) {
+      const sc = scroller(); if (!sc) return;
+      const usable = vTrack.clientHeight - vThumb.offsetHeight;
+      if (usable <= 0) return;
+      let pos = clientY - vTrack.getBoundingClientRect().top - grabOffset;
+      pos = Math.max(0, Math.min(usable, pos));
+      sc.scrollTop = (pos / usable) * (sc.scrollHeight - sc.clientHeight);
+      updateThumb();
+    }
+    vTrack.addEventListener("mousedown", (e) => {
+      const tRect = vThumb.getBoundingClientRect();
+      const onThumb = e.clientY >= tRect.top && e.clientY <= tRect.bottom;
+      grabOffset = onThumb ? e.clientY - tRect.top : vThumb.offsetHeight / 2;
+      dragging = true;
+      body.classList.add("scrubbing");
+      applyDrag(e.clientY);
+      e.preventDefault();
+    });
+    window.addEventListener("mousemove", (e) => { if (dragging) applyDrag(e.clientY); }, { passive: true });
+    window.addEventListener("mouseup", () => {
+      if (!dragging) return;
+      dragging = false;
+      body.classList.remove("scrubbing");
+    });
+  }
 
   /* ---------- Fullscreen (fullscreen light) ----------
      Expands the window, hides the chrome. Cursor to the very top peeks
@@ -168,15 +225,26 @@
      and reveals on cursor-to-bottom. The thumbnail reopens it. */
   const closeBtn = document.querySelector(".light--close");
   const dockApp = document.querySelector(".dock__app");
-  if (closeBtn) {
-    closeBtn.addEventListener("click", () => {
-      body.classList.add("is-closed");
-      body.classList.remove("is-full", "bar-peek");
-    });
+  const touchLike = () => isStacked() || window.matchMedia("(pointer: coarse)").matches;
+  let hintTimer = 0;
+  function openWindow() {
+    body.classList.remove("is-closed", "dock-peek", "hint-show");
+    clearTimeout(hintTimer);
   }
-  if (dockApp) {
-    dockApp.addEventListener("click", () => body.classList.remove("is-closed", "dock-peek"));
+  function closeWindow() {
+    body.classList.add("is-closed");
+    body.classList.remove("is-full", "bar-peek");
+    clearTimeout(hintTimer);
+    if (touchLike()) {
+      // Touch: the dock icon rises from below and stays — tap it to reopen.
+      body.classList.add("dock-peek");
+    } else {
+      // Desktop: the cursor hint fades in a few seconds after closing.
+      hintTimer = setTimeout(() => body.classList.add("hint-show"), 5000);
+    }
   }
+  if (closeBtn) closeBtn.addEventListener("click", closeWindow);
+  if (dockApp) dockApp.addEventListener("click", openWindow);
   /* Dock reveals fast and over a generous zone — the whole window is gone
      when closed, so there's no reason to make it precise/slow. */
   let dArmed = false;
