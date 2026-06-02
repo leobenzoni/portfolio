@@ -146,7 +146,7 @@ a { color: inherit; text-decoration: none; }
   position: fixed;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, 56px);
+  transform: translate(-50%, 25vh);
   z-index: 0;
   display: inline-flex;
   color: var(--muted);
@@ -449,7 +449,7 @@ body.dark .dock { background: rgba(40, 40, 42, 0.72); }
   font-family: "Heldane Text", "Times New Roman", Times, serif;
   font-weight: 400;
   font-size: 18px;
-  line-height: 0.95;
+  line-height: 1;
   letter-spacing: -0.01em;
   color: var(--text);
   white-space: nowrap;
