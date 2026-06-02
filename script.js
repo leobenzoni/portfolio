@@ -62,6 +62,18 @@
       const text = (e.clipboardData || window.clipboardData).getData("text");
       document.execCommand("insertText", false, text.replace(/\s+/g, " "));
     });
+
+    // Always typeable: a printable keystroke anywhere starts typing into
+    // the name (the only editable thing), so it feels permanently active —
+    // matching the always-visible blinking caret.
+    document.addEventListener("keydown", (e) => {
+      if (document.activeElement === nameEl) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.key.length !== 1) return;
+      e.preventDefault();
+      nameEl.focus();
+      caretToEnd();
+      document.execCommand("insertText", false, e.key);
+    });
   }
 
   /* ---------- Cursor-driven window shadow ---------- */
@@ -93,13 +105,13 @@
 
   function updateThumb() {
     if (!work || !vThumb || !vTrack) return;
-    const track = vTrack.clientHeight - 4; // 2px inset top + bottom
+    const track = vTrack.clientHeight;
     const ratio = Math.min(1, work.clientHeight / work.scrollHeight);
     const thumbH = Math.max(28, Math.round(track * ratio));
     const maxScroll = work.scrollHeight - work.clientHeight;
     const pos = maxScroll > 0 ? (work.scrollTop / maxScroll) * (track - thumbH) : 0;
     vThumb.style.height = thumbH + "px";
-    vThumb.style.top = (2 + pos) + "px";
+    vThumb.style.top = pos + "px";
   }
 
   if (work && window.matchMedia("(pointer: fine)").matches) {
@@ -144,10 +156,10 @@
     let armed = false, dwell = 0;
     document.addEventListener("mousemove", (e) => {
       if (!body.classList.contains("is-full")) { armed = false; clearTimeout(dwell); dwell = 0; return; }
-      if (e.clientY > 80) { armed = true; clearTimeout(dwell); dwell = 0; body.classList.remove("bar-peek"); }
-      else if (e.clientY <= 3 && armed) {
-        if (!dwell) dwell = setTimeout(() => { dwell = 0; body.classList.add("bar-peek"); }, 200);
-      } else if (e.clientY > 3 && e.clientY <= 80) { clearTimeout(dwell); dwell = 0; }
+      if (e.clientY > 90) { armed = true; clearTimeout(dwell); dwell = 0; body.classList.remove("bar-peek"); }
+      else if (e.clientY <= 14 && armed) {
+        if (!dwell) dwell = setTimeout(() => { dwell = 0; body.classList.add("bar-peek"); }, 90);
+      } else if (e.clientY > 14 && e.clientY <= 90) { clearTimeout(dwell); dwell = 0; }
     }, { passive: true });
   }
 
@@ -165,13 +177,13 @@
   if (dockApp) {
     dockApp.addEventListener("click", () => body.classList.remove("is-closed", "dock-peek"));
   }
-  let dArmed = false, dDwell = 0;
+  /* Dock reveals fast and over a generous zone — the whole window is gone
+     when closed, so there's no reason to make it precise/slow. */
+  let dArmed = false;
   document.addEventListener("mousemove", (e) => {
-    if (!body.classList.contains("is-closed")) { dArmed = false; clearTimeout(dDwell); dDwell = 0; return; }
+    if (!body.classList.contains("is-closed")) { dArmed = false; return; }
     const fromBottom = window.innerHeight - e.clientY;
-    if (fromBottom > 80) { dArmed = true; clearTimeout(dDwell); dDwell = 0; body.classList.remove("dock-peek"); }
-    else if (fromBottom <= 3 && dArmed) {
-      if (!dDwell) dDwell = setTimeout(() => { dDwell = 0; body.classList.add("dock-peek"); }, 200);
-    } else if (fromBottom > 3 && fromBottom <= 80) { clearTimeout(dDwell); dDwell = 0; }
+    if (fromBottom > 110) { dArmed = true; body.classList.remove("dock-peek"); }
+    else if (fromBottom <= 44 && dArmed) { body.classList.add("dock-peek"); }
   }, { passive: true });
 })();
