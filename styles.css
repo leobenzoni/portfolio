@@ -297,8 +297,11 @@ body.dark .dock { background: rgba(40, 40, 42, 0.72); }
   white-space: nowrap;
   overflow: hidden;
 }
-.titlebar__icon { display: inline-flex; line-height: 0; }
-.titlebar__icon svg { width: 14px; height: 14px; }
+/* font-size here matches the filename text so the icon's em tracks it. */
+.titlebar__icon { display: inline-flex; line-height: 0; font-size: 14px; }
+/* In the Figma the icon sat at the cap height of the filename (~0.78em).
+   width auto keeps the 38:50 ratio. */
+.titlebar__icon img { height: 0.78em; width: auto; display: block; }
 .titlebar__name {
   font-family: "SF Pro", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: 500;
