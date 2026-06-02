@@ -55,7 +55,7 @@
   --mac-yellow: #ffbd2e;    --mac-yellow-stroke: #dea123;
   --mac-green: #28c840;     --mac-green-stroke: #1aab29;
 
-  --win-shadow: rgba(0, 0, 0, 0.18);
+  --win-shadow: rgba(0, 0, 0, 0.135);
 }
 
 /* ---------- Dark mode (Photoshop dark workspace) ---------- */
@@ -81,7 +81,7 @@ body.dark {
   --light-mono: #9a9a9c;
   --light-stroke: rgba(255, 255, 255, 0.1);
 
-  --win-shadow: rgba(0, 0, 0, 0.55);
+  --win-shadow: rgba(0, 0, 0, 0.41);
 }
 
 /* Smooth the theme cross-fade on the colour-bearing elements. */
@@ -138,6 +138,7 @@ a { color: inherit; text-decoration: none; }
   -webkit-user-select: none;
   transition: color 0.4s ease;
 }
+@media (max-width: 1240px) { .closed-msg { cursor: pointer; } }
 
 /* Cursor hint under the centre text: a subtle bouncing down-arrow that points
    to the dock you reveal by moving the cursor down. Desktop only; fades in a
@@ -176,7 +177,7 @@ body.is-closed.hint-show .closed-hint { opacity: 0.4; }
   border: 1px solid var(--win-border);
   border-radius: var(--window-radius);
   box-shadow:
-    0 2px 10px rgba(0, 0, 0, 0.05),
+    0 2px 10px rgba(0, 0, 0, 0.0375),
     var(--sx) var(--sy) 30px var(--win-shadow);
   overflow: hidden;
   display: flex;
@@ -276,6 +277,12 @@ body.dock-peek .dock { transform: translate(-50%, 0); }
 }
 body.dark .dock { background: rgba(40, 40, 42, 0.72); }
 
+/* Mobile: lift the dock clear of the browser's bottom toolbar + home-indicator
+   safe area so the reopen icon stays visible and tappable. */
+@media (max-width: 1240px) {
+  .dock { bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); }
+}
+
 /* ---------- Title bar ---------- */
 
 .titlebar {
@@ -351,7 +358,7 @@ body.dark .dock { background: rgba(40, 40, 42, 0.72); }
 
 /* Touch / stacked ("mobile"): no hover, so show the full macOS colours at rest
    and no glyphs at all (Leo: colours, no icons on mobile). */
-@media (hover: none), (pointer: coarse), (max-width: 1340px) {
+@media (hover: none), (pointer: coarse), (max-width: 1240px) {
   .light--toggle {
     background: var(--mac-yellow);
     box-shadow: inset 0 0 0 1px var(--mac-yellow-stroke);
@@ -557,30 +564,14 @@ body.scrubbing * { cursor: grabbing !important; user-select: none; }
 .statusbar__zoom { background: var(--field-bg); }
 .statusbar__chevron { opacity: 0.7; }
 
-/* Remaining space is a horizontal scrollbar groove + thumb. */
-.statusbar__scroll {
-  position: relative;
-  flex: 1 1 auto;
-  background: var(--scroll-groove);
-}
-.statusbar__thumb {
-  position: absolute;
-  left: 100px;
-  top: 0;
-  bottom: 0;
-  width: 24px;
-  background: var(--scroll-thumb);
-  box-shadow: 1px 0 2px rgba(0, 0, 0, 0.14);
-}
-
 /* ============================================================
    Responsive — tablet + phone (mirrors the main branch)
-   Below 1340px the document stacks: name → role/tagline → socials at
+   Below 1240px the document stacks: name → role/tagline → socials at
    the top, gallery full-width below and scrolling. The vertical
    scrollbar hides (the gallery scrolls normally).
    ============================================================ */
 
-@media (max-width: 1340px) {
+@media (max-width: 1240px) {
   /* Tablet: tighter 24px frame all around. */
   :root { --frame-pad: 24px; }
   /* The down-arrow is a desktop cursor hint — drop it in the stacked layout. */
