@@ -1,0 +1,555 @@
+/* ============================================================
+   leonardo benzoni — personal site
+   one viewport, mac-preview chrome, fixed frame, scroll inside.
+   ============================================================ */
+
+/* ---------- Fonts ---------- */
+
+@font-face {
+  font-family: "Helvetica Now Display";
+  src: url("assets/HelveticaNowDisplay-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Heldane Text";
+  src: url("assets/test-heldane-text-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Tokens ---------- */
+
+:root {
+  /* Reference design: 1440x1080 viewport, 1344x984 window */
+  --frame-pad: 48px;
+  --titlebar-h: 50px;
+  --window-radius: 15.825px;
+  --page-bg: #fff;
+  --window-bg: #ededed;
+  --window-border: #c5c5c7;
+  --white-radius: 7.121px;
+  --white-border: #e6e6e6;
+  --canvas-bg: #fff;
+
+  --chrome-pad-x: 11.868px;
+  --chrome-pad-y: 10.286px;
+
+  --canvas-edge: 14px;     /* internal padding inside white area */
+  --canvas-bottom: 16px;   /* bottom anchor for identity + socials */
+
+  --color-text: #000;
+  --color-muted: #474747;
+  --color-icon: #6e6d6b;
+  --color-tile: #ededed;
+  --moon-color: #6e6d6b;
+}
+
+/* ---------- Dark mode ----------
+   First pass — tuned to macOS dark window colors. Leo will refine
+   the exact values from Figma later. Toggled by the moon icon;
+   persisted in localStorage. */
+
+body.dark {
+  --page-bg: #000000;
+  --window-bg: #2c2c2e;
+  --window-border: #3a3a3c;
+  --white-border: #303032;
+  --canvas-bg: #1c1c1e;
+  --color-text: #f5f5f7;
+  --color-muted: #a1a1a6;
+  --color-tile: #2c2c2e;
+  --moon-color: #d4d4d8;
+}
+
+/* Lighten the monochrome (#6E6D6B) icons against dark chrome. */
+body.dark .icon-btn img { filter: invert(1); }
+
+/* Smooth the text colour fade when toggling theme (these set color
+   explicitly, so without this the var swap would jump). */
+.clock,
+.identity__name,
+.identity__role { transition: color 0.4s ease; }
+
+/* ---------- Reset ---------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  /* Lock to viewport — no page scroll, ever. */
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--page-bg);
+  color: var(--color-text);
+  font-family: "Heldane Text", "Times New Roman", Times, serif;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  padding: var(--frame-pad);
+  /* Drives the fullscreen expand/restore motion + theme fade. */
+  transition:
+    padding 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+    background-color 0.4s ease,
+    color 0.4s ease;
+}
+
+/* ---------- Fullscreen ----------
+   macOS-style: window fills the viewport edge-to-edge in white, the
+   chrome (gray border + rounded corners) melts away, and the title
+   bar hides. Moving the cursor to the very top peeks the bar back
+   down; clicking the fullscreen icon there (or Escape) restores. */
+
+body.is-full { padding: 0; }
+
+body.is-full .window {
+  border-radius: 0;
+  border-color: transparent;
+  background: var(--canvas-bg);
+}
+
+/* White canvas fills the whole window, no margins/border/radius. */
+body.is-full .canvas {
+  margin: 0;
+  border-width: 0;
+  border-radius: 0;
+}
+
+/* Title bar lifts out of flow and slides up out of view. */
+body.is-full .titlebar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 5;
+  background: var(--window-bg);
+  transform: translateY(-100%);
+  /* Thin stroke under the bar (same as the frame), no shadow. */
+  border-bottom: 1.5px solid var(--window-border);
+}
+
+/* Cursor held at the very top peeks the bar down. */
+body.is-full.bar-peek .titlebar {
+  transform: translateY(0);
+}
+
+/* ---------- Close → minimize to dock ----------
+   Close scales the window down toward the dock (macOS "Scale"
+   effect) and fades it. A dock auto-hides at the bottom and
+   reveals when the cursor reaches the bottom edge. */
+
+body.is-closed .window {
+  transform: translateY(34vh) scale(0.08);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dock {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  z-index: 50;
+  transform: translate(-50%, 165%);
+  padding: 7px;
+  background: rgba(245, 245, 245, 0.72);
+  border: 1px solid var(--window-border);
+  border-radius: 16px;
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.16);
+  transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.dock-peek .dock { transform: translate(-50%, 0); }
+
+.dock__app {
+  display: block;
+  width: 56px;
+  height: 42px;
+  transition: transform 0.18s ease;
+}
+.dock__app:hover { transform: translateY(-7px) scale(1.04); }
+
+/* Thumbnail = a miniature of the window itself. */
+.dock__win {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--canvas-bg);
+  border: 1px solid var(--window-border);
+  border-radius: 7px;
+  overflow: hidden;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+}
+.dock__bar {
+  display: block;
+  height: 10px;
+  background: var(--window-bg);
+  border-bottom: 1px solid var(--window-border);
+}
+
+body.dark .dock { background: rgba(40, 40, 42, 0.72); }
+
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+
+/* ---------- Window (fills body minus 48px padding, fixed) ---------- */
+
+.window {
+  /* Cursor-driven directional shadow (set live by script.js).
+     Light tracks the cursor; the shadow casts the opposite way. */
+  --sx: 0px;
+  --sy: 0px;
+  width: 100%;
+  height: 100%;
+  background: var(--window-bg);
+  border: 1.5px solid var(--window-border);
+  border-radius: var(--window-radius);
+  /* Two layers: a constant soft ambient drop so the window always
+     sits on the page, plus a cursor-driven directional shadow that
+     shifts opposite to the cursor (the "light source"). */
+  box-shadow:
+    0 3px 12px rgba(0, 0, 0, 0.04),
+    var(--sx) var(--sy) 28px rgba(0, 0, 0, 0.11);
+  /* Minimize (close) scales toward the dock at the bottom. */
+  transform-origin: 50% 100%;
+  transition:
+    box-shadow 0.2s ease-out,
+    border-radius 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 0.4s ease,
+    background-color 0.4s ease,
+    transform 0.46s cubic-bezier(0.4, 0, 0.5, 1),
+    opacity 0.4s ease;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Title bar ---------- */
+
+.titlebar {
+  flex: 0 0 var(--titlebar-h);
+  height: var(--titlebar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 0 18.98px;
+  user-select: none;
+  /* Clean ease-out slide for the fullscreen peek. */
+  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.titlebar__left {
+  display: flex;
+  align-items: center;
+  gap: 12.66px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18.99px;
+  height: 18.99px;
+  transition: opacity 0.15s ease;
+}
+.icon-btn:hover { opacity: 0.6; }
+.icon-btn img { width: 100%; height: 100%; display: block; }
+
+/* Animated moon. The lit shape is a single inset box-shadow, so the
+   bite is genuinely transparent — no full-circle outline behind the
+   crescent on any background. Light = crescent (bite top-right); dark
+   = the shadow spreads to a full disc while the moon spins. Clean
+   easing (no overshoot) so the fill doesn't ping-pong at the end. */
+.moon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: inset 4px -3px 0 0 var(--moon-color);
+  transition:
+    box-shadow 0.6s cubic-bezier(0.32, 0.72, 0, 1),
+    transform 0.6s cubic-bezier(0.32, 0.72, 0, 1);
+}
+body.dark .moon {
+  box-shadow: inset 0 0 0 8px var(--moon-color);
+  transform: rotate(-200deg);
+}
+
+/* ---------- Clock (live, flip digits) ---------- */
+
+.clock {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: "SF Pro", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 590;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--color-muted);
+  letter-spacing: 0;
+  margin-left: 2px;
+  /* tabular figures so digits don't jitter when they change */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.clock__digit {
+  position: relative;
+  display: inline-block;
+  /* Exact tabular advance, measured from the real font at runtime and
+     set on .clock as --digit-w (script.js). The `ch` unit is the "0"
+     advance, which is wider than the tabular figure in SF Pro and left
+     dead space between digits — this pins each column to one glyph. */
+  width: var(--digit-w, 1ch);
+  height: 1em;
+  overflow: hidden;
+  vertical-align: top;
+}
+
+.clock__strip {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.42s cubic-bezier(0.32, 0.72, 0.18, 1);
+  will-change: transform;
+}
+
+.clock__strip > span {
+  flex: 0 0 1em;
+  height: 1em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- White canvas ---------- */
+
+.canvas {
+  flex: 1 1 auto;
+  margin: 0 var(--chrome-pad-x) var(--chrome-pad-y);
+  background: var(--canvas-bg);
+  border: 1.582px solid var(--white-border);
+  border-radius: var(--white-radius);
+  overflow: hidden;
+  position: relative;
+  transition:
+    margin 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+    border-radius 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+    background-color 0.4s ease,
+    border-color 0.4s ease;
+}
+
+/* ---------- Identity (bottom-left, fixed) ---------- */
+
+.identity {
+  position: absolute;
+  left: var(--canvas-edge);
+  bottom: var(--canvas-bottom);
+  /* Cap relative to the canvas (this is absolute in .canvas, so % is the
+     canvas width). Keeps a constant ~14px clearance from the socials at
+     any desktop width, so a long typed name wraps before reaching them. */
+  max-width: calc(50% - 120px);
+}
+
+/* Editable name. You can click in, clear it, and type your own — it
+   stays uppercase and wraps before it can reach the socials. The
+   blinking stroke is a ::after prompt; the native caret takes over
+   while editing. */
+.identity__name {
+  margin: 0;
+  font-family: "Helvetica Now Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--color-text);
+  /* Long single words break instead of pushing past the .identity cap. */
+  overflow-wrap: anywhere;
+  /* Hide the native caret — the custom stroke below is the only cursor,
+     in both resting and editing states, so they always match. Typing is
+     pinned to the end of the line in script.js. */
+  caret-color: transparent;
+  outline: none;
+}
+
+/* Blinking text-cursor stroke (the "I" prompt). Hard on/off. Stays
+   visible while editing too — it's the real caret, pinned to the end. */
+.identity__name::after {
+  content: "";
+  display: inline-block;
+  width: 1.5px;
+  height: 0.9em;
+  background: currentColor;
+  /* One clear space between the name and the blinker, in both resting
+     and editing states (it's a ::after, so it tracks the end as you type). */
+  margin-left: 0.34em;
+  vertical-align: -0.06em;
+  animation: blink 1.1s infinite;
+}
+
+@keyframes blink {
+  0%, 49.99%   { opacity: 1; }
+  50%, 100%    { opacity: 0; }
+}
+
+.identity__role {
+  margin: 8px 0 0;
+  font-family: "Heldane Text", "Times New Roman", Times, serif;
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--color-text);
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* "Nonstop" links to the agency — same hover-lighten as the socials. */
+.identity__role a { transition: opacity 0.15s ease; }
+.identity__role a:hover { opacity: 0.5; }
+
+/* ---------- Socials (bottom-center, fixed) ---------- */
+
+.socials {
+  position: absolute;
+  /* Right edge sits a constant 24px to the left of the gallery's left
+     edge (gallery starts at 50%), so the gap never changes on resize. */
+  right: calc(50% + 24px);
+  bottom: var(--canvas-bottom);
+  width: 68px;
+  display: flex;
+  flex-direction: column;
+  font-family: "Heldane Text", "Times New Roman", Times, serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.375;
+  letter-spacing: -0.01em;
+}
+
+.socials a { width: max-content; transition: opacity 0.15s ease; }
+.socials a:hover { opacity: 0.5; }
+
+/* ---------- Work grid (right half, scrollable) ---------- */
+
+.work {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 50%;
+  /* Uniform 12px on top/right/bottom — same as the tile gap — and 0
+     left so the first tile starts exactly at the 50% line. */
+  padding: 12px 12px 12px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  /* No visible scrollbar. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.work::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+.work__tile {
+  background: var(--color-tile);
+  border-radius: 4px;
+  aspect-ratio: 313 / 321;
+  transition: background-color 0.4s ease;
+}
+
+/* ============================================================
+   Responsive — tablet + mobile
+   Trigger ~1340px. With the 24px role line, the bottom-left text
+   would otherwise collide with the centered socials below ~1300px,
+   so the split desktop layout only runs where it actually fits.
+   Below that it flips to a stacked "header" arrangement: identity
+   top-left, socials top-right, gallery full-width below and
+   scrolling. Tablet keeps two columns; mobile drops to one.
+   ============================================================ */
+
+@media (max-width: 1340px) {
+  .canvas {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .canvas__header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 16px 16px 0 14px;
+  }
+
+  /* Back into flow, clear all desktop absolute offsets. */
+  .identity {
+    position: static;
+    inset: auto;
+    max-width: none;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* Allow the role to wrap on narrow screens. */
+  .identity__role { white-space: normal; }
+
+  .socials {
+    position: static;
+    inset: auto;
+    width: auto;
+    flex: 0 0 auto;
+  }
+
+  /* Name fills the header row here; flex constrains it, not max-width. */
+  .identity__name { max-width: none; }
+
+  .work {
+    position: static;
+    inset: auto;
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0; /* let the flex item shrink so it scrolls */
+    /* Gap to socials lives in margin-top (outside the scroll box, so it
+       never scrolls). No top padding → tiles crop instantly at the edge,
+       unlike desktop where the top padding acts as a scroll buffer. */
+    margin-top: 24px;
+    padding: 0 16px 16px;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* First row (2 tiles) sits flush against the crop edge — square its
+     top corners so the rounded corner can't be sub-pixel clipped. */
+  .work__tile:nth-child(-n + 2) {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  :root { --frame-pad: 24px; }
+
+  .work { grid-template-columns: 1fr; }
+
+  /* Single column: only tile 1 is the top row, so tile 2 is rounded again. */
+  .work__tile:nth-child(2) {
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+  }
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .clock__strip { transition: none; }
+  .identity__name::after { animation: none; }
+}

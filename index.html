@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Leonardo Benzoni</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="window" aria-label="leonardo benzoni portfolio">
+
+    <!-- Title bar / chrome -->
+    <header class="titlebar">
+      <div class="titlebar__left">
+        <button class="icon-btn" aria-label="close" type="button">
+          <img src="assets/x.svg" alt="" />
+        </button>
+        <button class="icon-btn" aria-label="fullscreen" type="button">
+          <img src="assets/fullscreen.svg" alt="" />
+        </button>
+        <div class="clock" id="clock" aria-label="current date and time"></div>
+      </div>
+      <div class="titlebar__right">
+        <button class="icon-btn icon-btn--moon" aria-label="toggle dark mode" type="button">
+          <span class="moon" aria-hidden="true"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- White canvas -->
+    <section class="canvas">
+
+      <!-- Identity + socials.
+           Desktop: each is absolutely positioned (name bottom-left,
+           socials bottom-center) so this wrapper has no visual effect.
+           Tablet/mobile: this becomes a flex row at the top. -->
+      <div class="canvas__header">
+        <div class="identity">
+          <p class="identity__name" contenteditable="true" spellcheck="false" aria-label="name (editable)">LEONARDO BENZONI</p>
+          <p class="identity__role">Head of Innovation and Brand Designer at <a href="https://nonstopbrandingagency.com/" target="_blank" rel="noopener">Nonstop</a>.</p>
+        </div>
+
+        <nav class="socials" aria-label="links">
+          <a href="https://x.com/leobenzoni" target="_blank" rel="noopener">X/Twitter</a>
+          <a href="https://www.instagram.com/leobenzoni/" target="_blank" rel="noopener">Instagram</a>
+          <a href="https://www.linkedin.com/in/leonardo-benzoni-1a4344387/" target="_blank" rel="noopener">LinkedIn</a>
+          <a href="https://nonstopbrandingagency.com/" target="_blank" rel="noopener">Agency</a>
+        </nav>
+      </div>
+
+      <!-- Work grid. Desktop: right half, scrollable. Tablet/mobile:
+           full width below the header. -->
+      <div class="work" aria-label="work">
+        <div class="work__tile"></div>
+        <div class="work__tile"></div>
+        <div class="work__tile"></div>
+        <div class="work__tile"></div>
+        <div class="work__tile"></div>
+        <div class="work__tile"></div>
+        <div class="work__tile"></div>
+        <div class="work__tile"></div>
+        <div class="work__tile"></div>
+        <div class="work__tile"></div>
+        <div class="work__tile"></div>
+        <div class="work__tile"></div>
+        <div class="work__tile"></div>
+        <div class="work__tile"></div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Dock. Auto-hidden at the bottom; reveals on cursor-to-bottom
+       while the window is closed. The thumbnail reopens it. -->
+  <div class="dock" aria-hidden="true">
+    <button class="dock__app" aria-label="reopen window" type="button">
+      <span class="dock__win"><span class="dock__bar"></span></span>
+    </button>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
