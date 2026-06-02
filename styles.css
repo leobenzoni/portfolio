@@ -25,8 +25,9 @@
 
 :root {
   --frame-pad: 48px;
-  --titlebar-h: 19px;
-  --statusbar-h: 17px;
+  --titlebar-h: 28px;
+  --statusbar-h: 26px;
+  --scrollbar-w: 13px;
   --window-radius: 7px;
 
   --page-bg: #ffffff;
@@ -40,7 +41,6 @@
   --muted: #1b1b1b;
   --chrome-text: #5d5d5d;
   --tile: #ededed;
-  --tile-shadow: rgba(0, 0, 0, 0.10);
 
   --field-bg: #e8e8e8;
   --field-border: #cccccc;
@@ -49,6 +49,7 @@
 
   --light-close: #ff6232;
   --light-mono: #6e6d6b;
+  --light-symbol: rgba(0, 0, 0, 0.55);
 
   --win-shadow: rgba(0, 0, 0, 0.18);
 }
@@ -67,7 +68,6 @@ body.dark {
   --muted: #c6c6c6;
   --chrome-text: #bdbdbd;
   --tile: #686868;
-  --tile-shadow: rgba(0, 0, 0, 0.40);
 
   --field-bg: #3a3a3c;
   --field-border: #202021;
@@ -75,6 +75,7 @@ body.dark {
   --scroll-thumb: #565658;
 
   --light-mono: #9a9a9c;
+  --light-symbol: rgba(0, 0, 0, 0.6);
 
   --win-shadow: rgba(0, 0, 0, 0.55);
 }
@@ -99,7 +100,10 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   padding: var(--frame-pad);
-  transition: background-color 0.4s ease, color 0.4s ease;
+  transition:
+    padding 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+    background-color 0.4s ease,
+    color 0.4s ease;
 }
 
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
@@ -122,11 +126,83 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transform-origin: 50% 100%;
   transition:
     box-shadow 0.2s ease-out,
+    border-radius 0.55s cubic-bezier(0.32, 0.72, 0, 1),
     border-color 0.4s ease,
-    background-color 0.4s ease;
+    background-color 0.4s ease,
+    transform 0.46s cubic-bezier(0.4, 0, 0.5, 1),
+    opacity 0.4s ease;
 }
+
+/* ---------- Fullscreen ----------
+   Window fills the viewport; the chrome (title bar, status bar, scrollbar)
+   melts away. Cursor to the very top peeks the title bar back down so you
+   can exit (click the fullscreen light) — or press Escape. */
+
+body.is-full { padding: 0; }
+body.is-full .window { border-radius: 0; border-color: transparent; }
+body.is-full .titlebar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 6;
+  transform: translateY(-100%);
+}
+body.is-full.bar-peek .titlebar { transform: translateY(0); }
+body.is-full .statusbar { display: none; }
+body.is-full .scroll-v { opacity: 0; pointer-events: none; }
+
+/* ---------- Close → minimize to dock ---------- */
+
+body.is-closed .window {
+  transform: translateY(34vh) scale(0.08);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dock {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  z-index: 50;
+  transform: translate(-50%, 165%);
+  padding: 7px;
+  background: rgba(245, 245, 245, 0.72);
+  border: 1px solid var(--win-border);
+  border-radius: 16px;
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.16);
+  transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+}
+body.dock-peek .dock { transform: translate(-50%, 0); }
+
+.dock__app {
+  display: block;
+  width: 58px;
+  height: 42px;
+  transition: transform 0.18s ease;
+}
+.dock__app:hover { transform: translateY(-7px) scale(1.04); }
+
+.dock__win {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--canvas-bg);
+  border: 1px solid var(--win-border);
+  border-radius: 7px;
+  overflow: hidden;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+}
+.dock__bar {
+  display: block;
+  height: 10px;
+  background: linear-gradient(var(--chrome-top), var(--chrome-bot));
+  border-bottom: 1px solid var(--chrome-border);
+}
+body.dark .dock { background: rgba(40, 40, 42, 0.72); }
 
 /* ---------- Title bar ---------- */
 
@@ -139,32 +215,74 @@ a { color: inherit; text-decoration: none; }
   background: linear-gradient(var(--chrome-top), var(--chrome-bot));
   border-bottom: 1px solid var(--chrome-border);
   user-select: none;
-  transition: background 0.4s ease, border-color 0.4s ease;
+  transition:
+    transform 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+    background 0.4s ease,
+    border-color 0.4s ease;
 }
 
 /* Traffic lights, left. */
 .lights {
   position: absolute;
-  left: 13px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .light {
-  width: 8px;
-  height: 8px;
+  position: relative;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
   background: var(--light-mono);
-  transition: background-color 0.4s ease, filter 0.15s ease, transform 0.15s ease;
+  transition: background-color 0.4s ease, filter 0.15s ease;
 }
 .light--close { background: var(--light-close); }
-.light--toggle { cursor: pointer; }
-.light--toggle:hover { filter: brightness(1.12); transform: scale(1.08); }
-/* close + fullscreen are decorative for now */
-.light--close, .light--full { cursor: default; }
+.light:hover { filter: brightness(1.08); }
+
+/* Symbols reveal when hovering the cluster (macOS behaviour). */
+.light::before, .light::after { opacity: 0; transition: opacity 0.15s ease; }
+.lights:hover .light::before,
+.lights:hover .light::after { opacity: 1; }
+
+/* close → "×" (two strokes) */
+.light--close::before,
+.light--close::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 1.4px;
+  background: var(--light-symbol);
+  border-radius: 1px;
+}
+.light--close::before { transform: translate(-50%, -50%) rotate(45deg); }
+.light--close::after  { transform: translate(-50%, -50%) rotate(-45deg); }
+
+/* toggle → small crescent (the dark/light switch) */
+.light--toggle::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  box-shadow: inset 2.4px -1.8px 0 0 var(--light-symbol);
+}
+
+/* fullscreen → diagonal expand arrows (two corner chevrons) */
+.light--full::before,
+.light--full::after {
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border: 1.4px solid var(--light-symbol);
+}
+.light--full::before { top: 3px; left: 3px; border-right: 0; border-bottom: 0; }
+.light--full::after  { bottom: 3px; right: 3px; border-left: 0; border-top: 0; }
 
 /* Centered filename + zoom (Photoshop title). */
 .titlebar__title {
@@ -174,17 +292,17 @@ a { color: inherit; text-decoration: none; }
   transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   max-width: 70%;
   white-space: nowrap;
   overflow: hidden;
 }
 .titlebar__icon { display: inline-flex; line-height: 0; }
-.titlebar__icon svg { width: 11px; height: 11px; }
+.titlebar__icon svg { width: 14px; height: 14px; }
 .titlebar__name {
   font-family: "SF Pro", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: 500;
-  font-size: 11.5px;
+  font-size: 14px;
   letter-spacing: 0.01em;
   color: var(--chrome-text);
 }
@@ -203,7 +321,7 @@ a { color: inherit; text-decoration: none; }
 
 .name {
   position: absolute;
-  left: 13px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   margin: 0;
@@ -216,7 +334,6 @@ a { color: inherit; text-decoration: none; }
   text-transform: uppercase;
   color: var(--text);
   overflow-wrap: anywhere;
-  /* Custom blinking stroke is the only caret; native one hidden. */
   caret-color: transparent;
   outline: none;
 }
@@ -241,15 +358,15 @@ a { color: inherit; text-decoration: none; }
 
 .meta {
   position: absolute;
-  left: 13px;
-  bottom: 13px;
+  left: 14px;
+  bottom: 14px;
 }
 .role, .tagline {
   margin: 0;
   font-family: "Heldane Text", "Times New Roman", Times, serif;
   font-weight: 400;
-  font-size: 13px;
-  line-height: 1.28;
+  font-size: 16px;
+  line-height: 1.3;
   letter-spacing: -0.01em;
   color: var(--muted);
   white-space: nowrap;
@@ -261,21 +378,21 @@ a { color: inherit; text-decoration: none; }
 
 .socials {
   position: absolute;
-  right: calc(50% + 14px);
-  bottom: 13px;
+  right: calc(50% + 16px);
+  bottom: 14px;
   display: flex;
   flex-direction: column;
   font-family: "Heldane Text", "Times New Roman", Times, serif;
   font-weight: 400;
-  font-size: 15px;
-  line-height: 1.33;
+  font-size: 16px;
+  line-height: 1.32;
   letter-spacing: -0.01em;
   color: var(--muted);
 }
 .socials a { width: max-content; transition: opacity 0.15s ease; }
 .socials a:hover { opacity: 0.5; }
 
-/* ---------- Gallery (right half, scroll, drop-shadow tiles) ---------- */
+/* ---------- Gallery (right half, scroll, flat tiles) ---------- */
 
 .work {
   position: absolute;
@@ -283,7 +400,7 @@ a { color: inherit; text-decoration: none; }
   bottom: 0;
   right: 0;
   width: 50%;
-  padding: 11px 24px 11px 0;
+  padding: 12px 28px 12px 0;
   overflow-y: auto;
   overflow-x: hidden;
   display: grid;
@@ -298,8 +415,29 @@ a { color: inherit; text-decoration: none; }
   background: var(--tile);
   border-radius: 6px;
   aspect-ratio: 313 / 321;
-  box-shadow: 0 6px 16px var(--tile-shadow);
-  transition: background-color 0.4s ease, box-shadow 0.4s ease;
+  transition: background-color 0.4s ease;
+}
+
+/* ---------- Vertical scrollbar (right edge) ---------- */
+
+.scroll-v {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: var(--scrollbar-w);
+  background: var(--scroll-groove);
+  border-left: 1px solid var(--chrome-border);
+  transition: background-color 0.4s ease, opacity 0.3s ease;
+}
+.scroll-v__thumb {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 2px;
+  height: 120px;
+  border-radius: 5px;
+  background: var(--scroll-thumb);
 }
 
 /* ---------- Status bar (Photoshop bottom) ---------- */
@@ -319,17 +457,18 @@ a { color: inherit; text-decoration: none; }
 .statusbar__field {
   display: inline-flex;
   align-items: center;
-  padding: 0 10px;
+  gap: 8px;
+  padding: 0 12px;
   font-family: "SF Pro", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: 400;
-  font-size: 11px;
+  font-size: 14px;
   color: var(--chrome-text);
   border-right: 1px solid var(--field-border);
 }
 .statusbar__zoom { background: var(--field-bg); }
-.statusbar__chevron { margin-left: 8px; opacity: 0.7; font-size: 13px; }
+.statusbar__chevron { opacity: 0.7; }
 
-/* The remaining space is a decorative horizontal scrollbar groove. */
+/* Remaining space is a horizontal scrollbar groove + thumb. */
 .statusbar__scroll {
   position: relative;
   flex: 1 1 auto;
@@ -340,7 +479,7 @@ a { color: inherit; text-decoration: none; }
   left: 2px;
   top: 50%;
   transform: translateY(-50%);
-  width: 64px;
+  width: 80px;
   height: 9px;
   border-radius: 5px;
   background: var(--scroll-thumb);

@@ -10,19 +10,19 @@
   <main class="window" aria-label="leonardo benzoni portfolio">
 
     <!-- Title bar: old-Photoshop document window.
-         Traffic lights left (close / theme toggle / fullscreen — only the
-         middle one is wired for now). Filename centered, with the live
-         date baked into the name (img + DDMMYY). -->
+         Traffic lights left: close / theme toggle (middle) / fullscreen.
+         Symbols reveal on hover. Filename centered, with the live date
+         baked into the name (img + DDMMYY). -->
     <header class="titlebar">
       <div class="lights">
-        <button class="light light--close" type="button" aria-label="close" tabindex="-1"></button>
+        <button class="light light--close" type="button" aria-label="close"></button>
         <button class="light light--toggle" type="button" aria-label="toggle dark mode"></button>
-        <button class="light light--full" type="button" aria-label="fullscreen" tabindex="-1"></button>
+        <button class="light light--full" type="button" aria-label="fullscreen"></button>
       </div>
 
       <div class="titlebar__title">
         <span class="titlebar__icon" aria-hidden="true">
-          <svg viewBox="0 0 16 16" width="13" height="13" fill="none">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
             <rect x="1" y="2.5" width="14" height="11" rx="2" fill="#c9d4e3" stroke="#94a1b4" stroke-width="0.9"/>
             <circle cx="5" cy="6.2" r="1.4" fill="#f3c44d"/>
             <path d="M2 13 L6 8.4 L8.8 11 L11 9 L14 13 Z" fill="#7fae7f"/>
@@ -32,9 +32,10 @@
       </div>
     </header>
 
-    <!-- Document canvas. Name is vertically centred at the left; the role +
-         tagline sit bottom-left; socials bottom (left of the gallery); the
-         gallery fills the right half and scrolls. -->
+    <!-- Document canvas. Name vertically centred at the left; role +
+         tagline bottom-left; socials bottom (left of the gallery); the
+         gallery fills the right half and scrolls; a Photoshop-style
+         vertical scrollbar sits on the right edge. -->
     <section class="canvas">
       <p class="name" contenteditable="true" spellcheck="false" aria-label="name (editable)">LEONARDO BENZONI</p>
 
@@ -66,17 +67,32 @@
         <div class="work__tile"></div>
         <div class="work__tile"></div>
       </div>
+
+      <!-- Vertical scrollbar (right edge). Thumb tracks the gallery scroll. -->
+      <div class="scroll-v" aria-hidden="true"><span class="scroll-v__thumb"></span></div>
     </section>
 
-    <!-- Status bar: Photoshop zoom + doc-size widgets, then a (decorative)
-         horizontal scrollbar groove + thumb. -->
+    <!-- Status bar: Photoshop zoom + doc-size widgets, then a horizontal
+         scrollbar groove + thumb. -->
     <footer class="statusbar">
       <span class="statusbar__field statusbar__zoom">33.33%</span>
-      <span class="statusbar__field statusbar__doc">Doc: 22.6;/22.6M <span class="statusbar__chevron" aria-hidden="true">›</span></span>
+      <span class="statusbar__field statusbar__doc">Doc: 22.6;/22.6M
+        <svg class="statusbar__chevron" viewBox="0 0 6 10" width="6" height="10" aria-hidden="true">
+          <path d="M1 1 L5 5 L1 9" stroke="currentColor" fill="none" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
       <span class="statusbar__scroll"><span class="statusbar__thumb"></span></span>
     </footer>
 
   </main>
+
+  <!-- Dock. Auto-hidden at the bottom; reveals on cursor-to-bottom while
+       the window is closed. The thumbnail reopens it. -->
+  <div class="dock" aria-hidden="true">
+    <button class="dock__app" aria-label="reopen window" type="button">
+      <span class="dock__win"><span class="dock__bar"></span></span>
+    </button>
+  </div>
 
   <script src="script.js"></script>
 </body>
