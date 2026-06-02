@@ -9,47 +9,47 @@
 <body>
   <main class="window" aria-label="leonardo benzoni portfolio">
 
-    <!-- Title bar / chrome -->
+    <!-- Title bar: old-Photoshop document window.
+         Traffic lights left (close / theme toggle / fullscreen — only the
+         middle one is wired for now). Filename centered, with the live
+         date baked into the name (img + DDMMYY). -->
     <header class="titlebar">
-      <div class="titlebar__left">
-        <button class="icon-btn" aria-label="close" type="button">
-          <img src="assets/x.svg" alt="" />
-        </button>
-        <button class="icon-btn" aria-label="fullscreen" type="button">
-          <img src="assets/fullscreen.svg" alt="" />
-        </button>
-        <div class="clock" id="clock" aria-label="current date and time"></div>
+      <div class="lights">
+        <button class="light light--close" type="button" aria-label="close" tabindex="-1"></button>
+        <button class="light light--toggle" type="button" aria-label="toggle dark mode"></button>
+        <button class="light light--full" type="button" aria-label="fullscreen" tabindex="-1"></button>
       </div>
-      <div class="titlebar__right">
-        <button class="icon-btn icon-btn--moon" aria-label="toggle dark mode" type="button">
-          <span class="moon" aria-hidden="true"></span>
-        </button>
+
+      <div class="titlebar__title">
+        <span class="titlebar__icon" aria-hidden="true">
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="none">
+            <rect x="1" y="2.5" width="14" height="11" rx="2" fill="#c9d4e3" stroke="#94a1b4" stroke-width="0.9"/>
+            <circle cx="5" cy="6.2" r="1.4" fill="#f3c44d"/>
+            <path d="M2 13 L6 8.4 L8.8 11 L11 9 L14 13 Z" fill="#7fae7f"/>
+          </svg>
+        </span>
+        <span class="titlebar__name"><span id="filedate">img000000</span>.jpg&nbsp;&nbsp;@&nbsp;33.3%&nbsp;(RGB/8*)</span>
       </div>
     </header>
 
-    <!-- White canvas -->
+    <!-- Document canvas. Name is vertically centred at the left; the role +
+         tagline sit bottom-left; socials bottom (left of the gallery); the
+         gallery fills the right half and scrolls. -->
     <section class="canvas">
+      <p class="name" contenteditable="true" spellcheck="false" aria-label="name (editable)">LEONARDO BENZONI</p>
 
-      <!-- Identity + socials.
-           Desktop: each is absolutely positioned (name bottom-left,
-           socials bottom-center) so this wrapper has no visual effect.
-           Tablet/mobile: this becomes a flex row at the top. -->
-      <div class="canvas__header">
-        <div class="identity">
-          <p class="identity__name" contenteditable="true" spellcheck="false" aria-label="name (editable)">LEONARDO BENZONI</p>
-          <p class="identity__role">Head of Innovation and Brand Designer at <a href="https://nonstopbrandingagency.com/" target="_blank" rel="noopener">Nonstop</a>.</p>
-        </div>
-
-        <nav class="socials" aria-label="links">
-          <a href="https://x.com/leobenzoni" target="_blank" rel="noopener">X/Twitter</a>
-          <a href="https://www.instagram.com/leobenzoni/" target="_blank" rel="noopener">Instagram</a>
-          <a href="https://www.linkedin.com/in/leonardo-benzoni-1a4344387/" target="_blank" rel="noopener">LinkedIn</a>
-          <a href="https://nonstopbrandingagency.com/" target="_blank" rel="noopener">Agency</a>
-        </nav>
+      <div class="meta">
+        <p class="role">Head of Innovation and Brand Designer at <a href="https://nonstopbrandingagency.com/" target="_blank" rel="noopener">Nonstop</a>.</p>
+        <p class="tagline">I create cool stuff with cool people.</p>
       </div>
 
-      <!-- Work grid. Desktop: right half, scrollable. Tablet/mobile:
-           full width below the header. -->
+      <nav class="socials" aria-label="links">
+        <a href="https://x.com/leobenzoni" target="_blank" rel="noopener">X/Twitter</a>
+        <a href="https://www.instagram.com/leobenzoni/" target="_blank" rel="noopener">Instagram</a>
+        <a href="https://www.linkedin.com/in/leonardo-benzoni-1a4344387/" target="_blank" rel="noopener">LinkedIn</a>
+        <a href="https://nonstopbrandingagency.com/" target="_blank" rel="noopener">Agency</a>
+      </nav>
+
       <div class="work" aria-label="work">
         <div class="work__tile"></div>
         <div class="work__tile"></div>
@@ -66,17 +66,17 @@
         <div class="work__tile"></div>
         <div class="work__tile"></div>
       </div>
-
     </section>
-  </main>
 
-  <!-- Dock. Auto-hidden at the bottom; reveals on cursor-to-bottom
-       while the window is closed. The thumbnail reopens it. -->
-  <div class="dock" aria-hidden="true">
-    <button class="dock__app" aria-label="reopen window" type="button">
-      <span class="dock__win"><span class="dock__bar"></span></span>
-    </button>
-  </div>
+    <!-- Status bar: Photoshop zoom + doc-size widgets, then a (decorative)
+         horizontal scrollbar groove + thumb. -->
+    <footer class="statusbar">
+      <span class="statusbar__field statusbar__zoom">33.33%</span>
+      <span class="statusbar__field statusbar__doc">Doc: 22.6;/22.6M <span class="statusbar__chevron" aria-hidden="true">›</span></span>
+      <span class="statusbar__scroll"><span class="statusbar__thumb"></span></span>
+    </footer>
+
+  </main>
 
   <script src="script.js"></script>
 </body>
