@@ -239,23 +239,23 @@
   }
   function closeWindow() {
     body.classList.add("is-closed");
-    body.classList.remove("is-full", "bar-peek");
+    body.classList.remove("is-full", "bar-peek", "dock-peek");
     clearTimeout(hintTimer);
-    if (touchLike()) {
-      // Touch: the dock icon rises from below and stays — tap it to reopen.
-      body.classList.add("dock-peek");
-    } else {
-      // Desktop: the cursor hint fades in a few seconds after closing.
+    // Desktop: the cursor hint fades in a few seconds after closing. Touch: the
+    // screen stays bare (just the message) until a tap brings the dock up.
+    if (!touchLike()) {
       hintTimer = setTimeout(() => body.classList.add("hint-show"), 5000);
     }
   }
   if (closeBtn) closeBtn.addEventListener("click", closeWindow);
   if (dockApp) dockApp.addEventListener("click", openWindow);
-  // Failsafe reopen on touch: tapping the centre message also reopens, in case
-  // the bottom dock is obscured by the mobile browser's toolbar/home indicator.
-  const closedMsg = document.querySelector(".closed-msg");
-  if (closedMsg) closedMsg.addEventListener("click", () => {
-    if (touchLike() && body.classList.contains("is-closed")) openWindow();
+  // Touch: when closed the screen is bare; a tap anywhere brings the dock up,
+  // then a tap on the dock reopens. Exclude the closing tap (inside the window)
+  // and the dock's own tap so neither double-triggers.
+  document.addEventListener("click", (e) => {
+    if (!touchLike() || !body.classList.contains("is-closed")) return;
+    if (e.target.closest(".window") || e.target.closest(".dock")) return;
+    body.classList.add("dock-peek");
   });
   /* Dock reveals fast and over a generous zone — the whole window is gone
      when closed, so there's no reason to make it precise/slow. */
