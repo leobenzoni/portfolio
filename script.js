@@ -266,4 +266,111 @@
     if (fromBottom > 110) { dArmed = true; body.classList.remove("dock-peek"); }
     else if (fromBottom <= 44 && dArmed) { body.classList.add("dock-peek"); }
   }, { passive: true });
+
+  /* ---------- Gallery: auto-load cms/ + 2-col masonry + placeholder floor ----------
+     Files dropped in cms/ are picked up by number (01, 02, ...; stops at the first
+     missing number). Real items fill from the top; grey placeholders pad up to MIN.
+     Images/video keep their natural aspect and pack into the shorter column (one
+     column on phones). Drop a file, refresh — it appears. */
+  (function gallery() {
+    if (!work) return;
+    const MIN = 10, MAX_PROBE = 60, GAP = 12, PH = 313 / 321; // PH = placeholder w/h
+    const EXTS = ["jpg", "jpeg", "png", "webp", "gif", "mp4", "webm"];
+    const VIDEO = new Set(["mp4", "webm"]);
+    const oneCol = () => window.matchMedia("(max-width: 640px)").matches;
+    let TILES = [];
+
+    function makeTile(item) {
+      const tile = document.createElement("div");
+      tile.className = "work__tile " + (item ? "work__tile--media" : "work__tile--ph");
+      tile._aspect = PH;
+      if (item) {
+        let el;
+        if (item.type === "video") {
+          el = document.createElement("video");
+          el.muted = true; el.loop = true; el.autoplay = true;
+          el.setAttribute("muted", ""); el.setAttribute("playsinline", "");
+        } else {
+          el = document.createElement("img");
+          el.loading = "lazy"; el.alt = "";
+        }
+        el.src = item.url;
+        tile.appendChild(el);
+      }
+      return tile;
+    }
+
+    function aspectOf(tile, item) {
+      return new Promise((res) => {
+        if (!item) return res(PH);
+        const ok = (w, h) => res(w && h ? w / h : PH);
+        if (item.type === "video") {
+          const v = tile.querySelector("video");
+          if (v.videoWidth) return ok(v.videoWidth, v.videoHeight);
+          v.addEventListener("loadedmetadata", () => ok(v.videoWidth, v.videoHeight), { once: true });
+          v.addEventListener("error", () => res(PH), { once: true });
+        } else {
+          const im = tile.querySelector("img");
+          if (im.complete && im.naturalWidth) return ok(im.naturalWidth, im.naturalHeight);
+          im.addEventListener("load", () => ok(im.naturalWidth, im.naturalHeight), { once: true });
+          im.addEventListener("error", () => res(PH), { once: true });
+        }
+      });
+    }
+
+    function pack() {
+      work.innerHTML = "";
+      const n = oneCol() ? 1 : 2;
+      const cols = [], h = [];
+      for (let i = 0; i < n; i++) {
+        const c = document.createElement("div");
+        c.className = "work__col";
+        work.appendChild(c); cols.push(c); h.push(0);
+      }
+      const colW = cols[0].clientWidth || 1;
+      TILES.forEach((t) => {
+        let s = 0;
+        for (let c = 1; c < n; c++) if (h[c] < h[s]) s = c;
+        cols[s].appendChild(t);
+        h[s] += colW / (t._aspect || PH) + GAP;
+      });
+      updateThumb();
+    }
+
+    function render(items) {
+      const total = Math.max(MIN, items.length);
+      TILES = [];
+      for (let i = 0; i < total; i++) TILES.push(makeTile(i < items.length ? items[i] : null));
+      pack(); // place immediately; re-pack once real media reports its size
+      Promise.all(TILES.map((t, i) =>
+        aspectOf(t, i < items.length ? items[i] : null).then((a) => { t._aspect = a; })
+      )).then(pack);
+    }
+
+    async function exists(url) {
+      try { return (await fetch(url, { method: "HEAD" })).ok; } catch (e) { return false; }
+    }
+    async function probe(n) {
+      const num = String(n).padStart(2, "0");
+      for (const ext of EXTS) {
+        const url = "cms/" + num + "." + ext;
+        if (await exists(url)) return { url: url, type: VIDEO.has(ext) ? "video" : "image" };
+      }
+      return null;
+    }
+
+    render([]); // instant placeholders (no empty flash)
+    (async () => {
+      const items = [];
+      for (let n = 1; n <= MAX_PROBE; n++) {
+        const it = await probe(n);
+        if (!it) break;
+        items.push(it);
+      }
+      if (items.length) render(items);
+    })();
+
+    let rt = 0;
+    window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(pack, 150); }, { passive: true });
+  })();
 })();
