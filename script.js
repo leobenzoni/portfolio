@@ -20,20 +20,28 @@
     });
   }
 
-  /* ---------- Filename date (live) ----------
-     Title reads "img<DDMMYY>.jpg" — day-month-year, no time. Refreshed
-     on an interval so it rolls over at midnight if left open. */
+  /* ---------- Live title-bar + status-bar readouts ----------
+     The filename number is the date (img + DDMMYY). The Photoshop "zoom %" is
+     secretly the time (24h): HH.MM% in the status bar, HH.M% — one digit shorter
+     — in the title, the same precision relationship the static 33.33% / 33.3%
+     had. Refreshed on an interval so both roll over while the page is left open. */
   const fileDate = document.getElementById("filedate");
-  if (fileDate) {
-    const pad = (n) => (n < 10 ? "0" + n : String(n));
-    const setDate = () => {
-      const d = new Date();
+  const zoomTitle = document.getElementById("zoomtitle");
+  const zoomStatus = document.querySelector(".statusbar__zoom");
+  const pad = (n) => (n < 10 ? "0" + n : String(n));
+  function setReadouts() {
+    const d = new Date();
+    if (fileDate) {
       fileDate.textContent =
         "img" + pad(d.getDate()) + pad(d.getMonth() + 1) + pad(d.getFullYear() % 100);
-    };
-    setDate();
-    setInterval(setDate, 30000);
+    }
+    const mm = pad(d.getMinutes());           // zero-padded so HH.M takes the tens digit
+    const h = d.getHours();                    // 24h, no leading zero
+    if (zoomStatus) zoomStatus.textContent = h + "." + mm + "%";    // HH.MM%  e.g. 11.45%
+    if (zoomTitle) zoomTitle.textContent = h + "." + mm[0] + "%";   // HH.M%   e.g. 11.4%
   }
+  setReadouts();
+  setInterval(setReadouts, 10000);
 
   /* ---------- Animated name (display only) ----------
      Not editable. Every 5s it deletes back to "LEO" and retypes the other
