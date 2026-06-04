@@ -498,37 +498,49 @@ body.dark .dock { background: rgba(40, 40, 42, 0.72); }
   padding: 12px 28px 12px 0;
   overflow-y: auto;
   overflow-x: hidden;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;                 /* gap between masonry columns */
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 .work::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
-.work__col {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;                 /* gap between tiles in a column */
+/* Tiles are absolutely positioned inside this wrapper (JS-driven masonry).
+   Its height is set by JS so the scroll range stays correct. */
+.work__grid {
+  position: relative;
+  width: 100%;
 }
 
 .work__tile {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;     /* translate(x,y) lands the tile's top-left */
   background: var(--tile);
   border-radius: 6px;
   overflow: hidden;
   transition: background-color 0.4s ease;
+  will-change: transform;
 }
-/* Placeholders keep the current near-square shape. */
-.work__tile--ph { aspect-ratio: 313 / 321; }
-/* Media fills the column width at its natural height (no cropping). */
+/* Transforms only animate while opening/closing — not on first paint or the
+   resize re-pack (those snap). The class is toggled by gallery() in script.js. */
+.work__grid.is-animating .work__tile {
+  transition: transform 0.42s cubic-bezier(0.2, 0, 0, 1),
+              background-color 0.4s ease;
+}
+.work__tile.is-open { z-index: 2; }   /* paints over its neighbours while scaling */
+/* Pointer affordance only where tiles are actually clickable (desktop split). */
+@media (min-width: 1241px) and (pointer: fine) {
+  .work__tile { cursor: pointer; }
+}
+/* Tile boxes get explicit JS-set heights now, so media fills the box. The box
+   aspect matches the media's, so object-fit: cover crops nothing visible. */
 .work__tile--media { line-height: 0; }
 .work__tile--media img,
 .work__tile--media video {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* ---------- Vertical scrollbar (right edge) ---------- */
