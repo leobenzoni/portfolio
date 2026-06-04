@@ -24,7 +24,7 @@
 /* ---------- Tokens ---------- */
 
 :root {
-  --frame-pad: 48px;
+  --frame-pad: 64px;
   --titlebar-h: 28px;
   --statusbar-h: 26px;
   --scrollbar-w: 13px;
