@@ -9,15 +9,11 @@
   const body = document.body;
 
   /* ---------- Theme (dark mode) ----------
-     Middle traffic light. Persisted; applied early to avoid a flash. */
-  const THEME_KEY = "lb-theme";
-  if (localStorage.getItem(THEME_KEY) === "dark") body.classList.add("dark");
+     Middle traffic light. Always opens in light — the toggle flips dark for the
+     current visit only (not persisted), so every fresh load starts light. */
   const toggle = document.querySelector(".light--toggle");
   if (toggle) {
-    toggle.addEventListener("click", () => {
-      const dark = body.classList.toggle("dark");
-      localStorage.setItem(THEME_KEY, dark ? "dark" : "light");
-    });
+    toggle.addEventListener("click", () => body.classList.toggle("dark"));
   }
 
   /* ---------- Live title-bar + status-bar readouts ----------
