@@ -286,8 +286,7 @@
     const EXTS = ["jpg", "jpeg", "png", "webp", "gif", "mp4", "webm"];
     const VIDEO = new Set(["mp4", "webm"]);
     const oneCol = () => window.matchMedia("(max-width: 640px)").matches;
-    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-    let TILES = [], grid = null, openIndex = null, scrollBefore = 0;
+    let TILES = [];
 
     function makeTile(item) {
       const tile = document.createElement("div");
@@ -327,125 +326,38 @@
       });
     }
 
-    // Column geometry for the current width.
-    function metrics() {
+    // Static shortest-column masonry: distribute tiles into 1–2 flex columns by
+    // running height (the shorter column gets the next tile). Tiles keep their
+    // natural aspect; CSS stacks them within each column. (The click-to-expand
+    // version is parked on the `gallery-expand` branch.)
+    function pack() {
+      work.innerHTML = "";
       const n = oneCol() ? 1 : 2;
-      const gridW = grid ? grid.clientWidth : work.clientWidth;
-      const colW = n === 1 ? gridW : (gridW - GAP) / 2;
-      return { n, gridW, colW };
-    }
-    const tileH = (t, colW) => Math.round(colW / (t._aspect || PH));
-
-    // Per-tile box size. Depends only on column width + aspect, so it changes on
-    // resize but NOT on open/close — which is why an open tile can grow purely by
-    // transform: scale (no width/height thrash, no image distortion).
-    function sizeTiles() {
-      const { colW } = metrics();
-      TILES.forEach((t) => { t.style.width = colW + "px"; t.style.height = tileH(t, colW) + "px"; });
-    }
-
-    // Masonry layout. openIdx null = plain 2-col pack. With a tile open: tiles
-    // before it keep their slots, the open one spans full width on a band below
-    // them, everything after reflows into 2 cols beneath it.
-    function computeLayout(openIdx) {
-      const { n, gridW, colW } = metrics();
-      const L = new Array(TILES.length);
-      const place = (i, h) => {
+      const cols = [], h = [];
+      for (let i = 0; i < n; i++) {
+        const c = document.createElement("div");
+        c.className = "work__col";
+        work.appendChild(c); cols.push(c); h.push(0);
+      }
+      const colW = cols[0].clientWidth || 1;
+      TILES.forEach((t) => {
         let s = 0;
         for (let c = 1; c < n; c++) if (h[c] < h[s]) s = c;
-        L[i] = { x: s * (colW + GAP), y: h[s], scale: 1 };
-        h[s] += tileH(TILES[i], colW) + GAP;
-      };
-      const h = new Array(n).fill(0);
-      const prefixEnd = openIdx == null ? TILES.length : openIdx;
-      for (let i = 0; i < prefixEnd; i++) place(i, h);
-      if (openIdx == null) { L._gridH = Math.max(0, Math.max(...h) - GAP); return L; }
-      const bandTop = Math.max(...h);
-      const openVisH = Math.round(gridW / (TILES[openIdx]._aspect || PH));
-      L[openIdx] = { x: 0, y: bandTop, scale: gridW / colW, open: true };
-      const h2 = new Array(n).fill(bandTop + openVisH + GAP);
-      for (let i = openIdx + 1; i < TILES.length; i++) place(i, h2);
-      L._bandTop = bandTop;
-      L._gridH = Math.max(bandTop + openVisH, Math.max(...h2) - GAP);
-      return L;
-    }
-
-    function apply(L, animate) {
-      if (animate) { grid.classList.add("is-animating"); void grid.offsetHeight; }
-      else grid.classList.remove("is-animating");
-      TILES.forEach((t, i) => {
-        const l = L[i];
-        t.style.transform = "translate(" + l.x + "px," + l.y + "px)" + (l.scale !== 1 ? " scale(" + l.scale + ")" : "");
-        t.classList.toggle("is-open", !!l.open);
+        cols[s].appendChild(t);
+        h[s] += colW / (t._aspect || PH) + GAP;
       });
-      grid.style.height = L._gridH + "px";
       updateThumb();
-    }
-
-    function relayout(animate) {
-      sizeTiles();
-      const L = computeLayout(openIndex);
-      apply(L, animate);
-      return L;
-    }
-
-    // Scroll position that puts the open tile's band flush at the top of the
-    // gallery, so the tiles above it sit just out of view (no peeking sliver).
-    // You can still scroll up to them — the band isn't locked.
-    function bandToScroll(bandTop) {
-      const g = grid.getBoundingClientRect(), s = work.getBoundingClientRect();
-      const gridTop = work.scrollTop + (g.top - s.top);
-      return clamp(gridTop + bandTop, 0, work.scrollHeight - work.clientHeight);
-    }
-    // Smooth-scroll the gallery to `top` (reuses the wheel-smoothing loop).
-    function glideTo(top) {
-      target = top;
-      if (!ticking) { ticking = true; requestAnimationFrame(step); }
-    }
-
-    function openTile(k) {
-      if (openIndex === null) scrollBefore = work.scrollTop;  // remember where to return on close
-      openIndex = k;
-      const L = relayout(true);
-      glideTo(bandToScroll(L._bandTop || 0));                 // bring the open tile to the top
-    }
-    function closeTile() {
-      openIndex = null;
-      relayout(true);
-      glideTo(scrollBefore);                                  // back to the exact pre-open position
     }
 
     function render(items) {
       const total = Math.max(MIN, items.length);
       TILES = [];
-      openIndex = null;
-      grid = document.createElement("div");
-      grid.className = "work__grid";
-      for (let i = 0; i < total; i++) {
-        const t = makeTile(i < items.length ? items[i] : null);
-        TILES.push(t); grid.appendChild(t);
-      }
-      work.innerHTML = "";
-      work.appendChild(grid);
-      relayout(false); // place instantly; re-pack once real media reports its size
+      for (let i = 0; i < total; i++) TILES.push(makeTile(i < items.length ? items[i] : null));
+      pack(); // place immediately; re-pack once real media reports its size
       Promise.all(TILES.map((t, i) =>
         aspectOf(t, i < items.length ? items[i] : null).then((a) => { t._aspect = a; })
-      )).then(() => relayout(false));
+      )).then(pack);
     }
-
-    // Click a tile to expand — desktop only (mouse + the split layout). Touch /
-    // stacked layouts skip it: tiles are already large there and it ran laggy.
-    // Click it again, or another tile, to swap/close. One open at a time.
-    // Delegated on .work so it survives the grid being rebuilt when cms/ loads.
-    const canExpand = () => !isStacked() && window.matchMedia("(pointer: fine)").matches;
-    work.addEventListener("click", (e) => {
-      if (!canExpand()) return;
-      const tile = e.target.closest(".work__tile");
-      if (!tile) return;
-      const k = TILES.indexOf(tile);
-      if (k < 0) return;
-      if (k === openIndex) closeTile(); else openTile(k);
-    });
 
     async function exists(url) {
       try { return (await fetch(url, { method: "HEAD" })).ok; } catch (e) { return false; }
@@ -471,12 +383,6 @@
     })();
 
     let rt = 0;
-    window.addEventListener("resize", () => {
-      clearTimeout(rt);
-      rt = setTimeout(() => {
-        openIndex = null;
-        relayout(false);
-      }, 150);
-    }, { passive: true });
+    window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(pack, 150); }, { passive: true });
   })();
 })();
