@@ -127,11 +127,25 @@
     if (!sc) return;
     const track = vTrack.clientHeight;
     const ratio = Math.min(1, sc.clientHeight / sc.scrollHeight);
-    const thumbH = Math.max(28, Math.round(track * ratio));
+    let thumbH = Math.max(28, Math.round(track * ratio));
     const maxScroll = sc.scrollHeight - sc.clientHeight;
-    const pos = maxScroll > 0 ? (sc.scrollTop / maxScroll) * (track - thumbH) : 0;
+    let top;
+    if (maxScroll <= 0) {
+      top = 0;
+    } else if (sc.scrollTop < 0) {
+      // Rubber-band past the top (iOS): pin the thumb to the top edge and shrink
+      // it by the overscroll instead of letting it slide out of the rail.
+      thumbH = Math.max(14, thumbH + sc.scrollTop);
+      top = 0;
+    } else if (sc.scrollTop > maxScroll) {
+      // Rubber-band past the bottom: keep the thumb's bottom pinned and shrink.
+      thumbH = Math.max(14, thumbH - (sc.scrollTop - maxScroll));
+      top = track - thumbH;
+    } else {
+      top = (sc.scrollTop / maxScroll) * (track - thumbH);
+    }
     vThumb.style.height = thumbH + "px";
-    vThumb.style.top = pos + "px";
+    vThumb.style.top = top + "px";
   }
 
   // Smooth wheel scrolling for the desktop gallery. When stacked, the canvas

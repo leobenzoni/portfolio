@@ -642,6 +642,10 @@ body.scrubbing * { cursor: grabbing !important; user-select: none; }
   }
 
   .scroll-v { display: block; }
+
+  /* Fullscreen hides the scrollbar rail, so the extra right padding that cleared
+     it is no longer needed — match the left so the page re-centres. */
+  body.is-full .canvas { padding-right: 18px; }
 }
 
 @media (max-width: 640px) {
