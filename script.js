@@ -298,7 +298,75 @@
     const oneCol = () => window.matchMedia("(max-width: 640px)").matches;
     let TILES = [];
 
-    function makeTile(item) {
+    // Expose the discovered media list so the load overlay knows what's coming.
+    let _resolveItems;
+    window.__leoItemsReady = new Promise((r) => { _resolveItems = r; });
+
+    /* ---- Content gate ----
+       The load overlay waits on these gating assets. Each is fetched ONCE via a
+       streaming reader (real byte progress), turned into a blob the gallery tile
+       then renders — so there is a single download per asset and the bar tracks
+       true bytes on the wire (weighted by size, monotonic). The gate clears only
+       once a gating asset is fully downloaded; the bytes are then local, so the
+       tile paints instantly and nothing pops in or rebuffers after the open. */
+    const GATE_MAX = 6;            // gate the first screenful; rest warms after
+    const gateAssets = [];
+    let _pending = 0, _sealed = false, _lastP = 0, _progressCb = null, _resolveReady;
+    const _ready = new Promise((r) => { _resolveReady = r; });
+    function _report() {
+      const live = gateAssets.filter((a) => !a.dropped);
+      const W = live.reduce((s, a) => s + a.weight, 0);
+      const p = W ? live.reduce((s, a) => s + a.weight * a.frac, 0) / W : 1;
+      _lastP = Math.max(_lastP, p);                 // never go backwards
+      if (_progressCb) _progressCb(_lastP);
+    }
+    function _check() { if (_sealed && _pending <= 0) { _report(); _resolveReady(); } }
+    window.__leoContent = {
+      ready: _ready,
+      onProgress(cb) { _progressCb = cb; cb(_lastP); },
+    };
+
+    function gateLoad(tile, item) {
+      const isVid = item.type === "video";
+      const a = { weight: item.bytes || (isVid ? 3e6 : 2e5), frac: 0, done: false, dropped: false };
+      gateAssets.push(a); _pending++;
+      // Stall watchdog: a slow-but-progressing download waits as long as it needs;
+      // only a genuinely dead asset (no bytes for STALL ms) is dropped. No fixed
+      // time cap — that would cut off a heavy asset on a slow connection.
+      const STALL = 10000;
+      let stall = setTimeout(drop, STALL);
+      function bump() { clearTimeout(stall); stall = setTimeout(drop, STALL); }
+      function drop() { if (a.done || a.dropped) return; clearTimeout(stall); a.dropped = true; _pending--; _report(); _check(); }
+      function settle() { if (a.done || a.dropped) return; clearTimeout(stall); a.done = true; a.frac = 1; _pending--; _report(); _check(); }
+
+      (async () => {
+        let res;
+        try { res = await fetch(item.url); if (!res.ok || !res.body) throw 0; } catch (e) { return drop(); }
+        const total = +res.headers.get("content-length") || a.weight;
+        const reader = res.body.getReader();
+        const chunks = [];
+        let loaded = 0;
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value); loaded += value.length;
+            a.frac = Math.min(0.99, loaded / total);   // real bytes on the wire
+            _report(); bump();                         // bytes arriving — reset the watchdog
+          }
+        } catch (e) { return drop(); }
+        // All bytes are in — the asset is fully downloaded. Hand the blob to the
+        // real tile (single download, no second request) and settle: it renders
+        // from local memory, so there is nothing left to wait on and nothing can
+        // pop in. (Decode finishes well within the scale-grow before content paints.)
+        const url = URL.createObjectURL(new Blob(chunks, isVid ? { type: "video/mp4" } : undefined));
+        const el = tile.querySelector(isVid ? "video" : "img");
+        if (el) { if (!isVid) el.loading = "eager"; el.src = url; }
+        settle();
+      })();
+    }
+
+    function makeTile(item, gate) {
       const tile = document.createElement("div");
       tile.className = "work__tile " + (item ? "work__tile--media" : "work__tile--ph");
       tile._aspect = PH;
@@ -306,13 +374,15 @@
         let el;
         if (item.type === "video") {
           el = document.createElement("video");
-          el.muted = true; el.loop = true; el.autoplay = true;
+          // No autoplay: the loader starts playback after the window opens, so it
+          // can't rebuffer in view on a slow link.
+          el.muted = true; el.loop = true; el.preload = "auto";
           el.setAttribute("muted", ""); el.setAttribute("playsinline", "");
         } else {
           el = document.createElement("img");
           el.loading = "lazy"; el.alt = "";
         }
-        el.src = item.url;
+        if (!gate) el.src = item.url;   // gating tiles get a blob src from gateLoad
         tile.appendChild(el);
       }
       return tile;
@@ -362,21 +432,29 @@
     function render(items) {
       const total = Math.max(MIN, items.length);
       TILES = [];
-      for (let i = 0; i < total; i++) TILES.push(makeTile(i < items.length ? items[i] : null));
+      for (let i = 0; i < total; i++) {
+        const item = i < items.length ? items[i] : null;
+        const gating = !!item && i < GATE_MAX;
+        const tile = makeTile(item, gating);
+        if (gating) gateLoad(tile, item);    // fetch -> blob -> tile (single download)
+        TILES.push(tile);
+      }
+      if (items.length) _sealed = true;      // the gating set is now known
       pack(); // place immediately; re-pack once real media reports its size
+      _check();                              // in case everything was already cached
       Promise.all(TILES.map((t, i) =>
         aspectOf(t, i < items.length ? items[i] : null).then((a) => { t._aspect = a; })
       )).then(pack);
     }
 
-    async function exists(url) {
-      try { return (await fetch(url, { method: "HEAD" })).ok; } catch (e) { return false; }
-    }
     async function probe(n) {
       const num = String(n).padStart(2, "0");
       for (const ext of EXTS) {
         const url = "cms/" + num + "." + ext;
-        if (await exists(url)) return { url: url, type: VIDEO.has(ext) ? "video" : "image" };
+        try {
+          const r = await fetch(url, { method: "HEAD" });
+          if (r.ok) return { url: url, type: VIDEO.has(ext) ? "video" : "image", bytes: +(r.headers.get("content-length") || 0) };
+        } catch (e) {}
       }
       return null;
     }
@@ -389,10 +467,131 @@
         if (!it) break;
         items.push(it);
       }
+      _resolveItems(items);
       if (items.length) render(items);
+      else _resolveReady();         // nothing to gate — let the overlay open
     })();
 
     let rt = 0;
     window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(pack, 150); }, { passive: true });
+  })();
+
+  /* ---------- Load animation — content-gated old-Mac "opening" ----------
+     A blank overlay + Photoshop progress bar holds while the gallery's media
+     ACTUALLY loads (window.__leoContent), then the window grows up from the
+     dock — empty — and the content paints in. Progress is real (driven by load
+     events, weighted by byte size), never a timer. The dev panel (localhost)
+     toggles the animation off and replays it.                                  */
+  (function loader() {
+    const overlay = document.getElementById("loader");
+    if (!overlay) return;
+    const KEY = "leo-anim";
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const fill = overlay.querySelector(".loader__fill");
+    const fileLabel = overlay.querySelector(".loader__file");
+    const status = overlay.querySelector(".loader__status");
+    let animOff = localStorage.getItem(KEY) === "off";
+    const isLocal = ["localhost", "127.0.0.1", ""].includes(location.hostname);
+
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    let opened = false;
+
+    function playVideos() {
+      document.querySelectorAll(".work video").forEach((v) => { const p = v.play && v.play(); if (p) p.catch(() => {}); });
+    }
+    function paint() { body.classList.add("content-paint"); playVideos(); }
+    function snap() {        // reveal with no scale-grow (off / reduced-motion / bfcache)
+      opened = true;
+      body.classList.remove("is-loading", "is-opening", "is-scanning");
+      body.classList.add("loaded", "content-paint");
+      playVideos();
+    }
+
+    function setBar(p) {
+      p = Math.min(1, Math.max(0, p));
+      if (fill) fill.style.width = (p * 100).toFixed(1) + "%";
+      if (status && !opened) status.textContent = "loading… " + Math.round(p * 100) + "%";
+    }
+
+    function open() {
+      if (opened) return;
+      opened = true;
+      body.classList.remove("is-scanning");
+      if (fill) fill.style.width = "100%";
+      if (status) status.textContent = "opening";
+      if (animOff || reduce) { snap(); return; }
+
+      body.classList.add("is-opening");
+      body.classList.remove("is-loading");
+
+      // Paint the content AFTER the grow: earliest of the window's transform
+      // transitionend / a fallback timer / a scroll — never transitionend alone
+      // (a throttled or backgrounded tab may never fire it -> empty window).
+      let painted = false;
+      const doPaint = () => { if (painted) return; painted = true; paint(); };
+      const onEnd = (e) => { if (e.propertyName === "transform") { win.removeEventListener("transitionend", onEnd); doPaint(); } };
+      win.addEventListener("transitionend", onEnd);
+      setTimeout(doPaint, 880);
+      window.addEventListener("scroll", doPaint, { once: true, passive: true });
+
+      setTimeout(() => { body.classList.remove("is-opening"); body.classList.add("loaded"); }, 900);
+    }
+
+    async function start() {
+      if (fileLabel && fileDate) fileLabel.textContent = (fileDate.textContent || "img000000") + ".jpg";
+      // Dev "off": skip the overlay entirely (fast iteration). Production never sets it.
+      if (animOff) { snap(); return; }
+
+      // Discovery: indeterminate sweep until we know what's in cms/.
+      body.classList.add("is-scanning");
+      if (status) status.textContent = "scanning…";
+      const DISCOVERY_CAP = 12000;   // a hung HEAD probe shouldn't trap discovery
+      const items = await Promise.race([window.__leoItemsReady || Promise.resolve([]), wait(DISCOVERY_CAP).then(() => [])]);
+      body.classList.remove("is-scanning");
+
+      const content = window.__leoContent;
+      if (!content || !items.length) { setBar(1); return open(); }
+
+      content.onProgress(setBar);
+      await content.ready;   // opens only when the media is truly loaded — each asset
+      open();                // settles, or (if dead) is dropped by its stall watchdog
+    }
+
+    function replay() {
+      opened = false;
+      body.classList.remove("loaded", "is-opening", "content-paint");
+      if (fill) fill.style.width = "100%";
+      if (status) status.textContent = "opening";
+      body.classList.add("is-loading");
+      void overlay.offsetWidth;          // restart transitions
+      setTimeout(open, 180);             // assets are cached — replay just the motion
+    }
+
+    // Back/forward cache: a restored page is already fully loaded — never re-trap it.
+    window.addEventListener("pageshow", (e) => { if (e.persisted) snap(); });
+
+    // Dev panel — localhost only, never ships to leobenzoni.com.
+    if (isLocal) {
+      const panel = document.createElement("div");
+      panel.className = "devpanel";
+      panel.innerHTML = '<span class="devpanel__title">LOAD</span>' +
+        '<button data-s="on">on</button><button data-s="off">off</button>' +
+        '<button class="devpanel__replay" data-s="replay">replay</button>';
+      const mark = () => {
+        panel.querySelector('button[data-s="on"]').classList.toggle("is-on", !animOff);
+        panel.querySelector('button[data-s="off"]').classList.toggle("is-on", animOff);
+      };
+      panel.addEventListener("click", (e) => {
+        const b = e.target.closest("button"); if (!b) return;
+        if (b.dataset.s === "replay") { animOff = false; localStorage.removeItem(KEY); mark(); return replay(); }
+        animOff = b.dataset.s === "off";
+        if (animOff) { localStorage.setItem(KEY, "off"); snap(); } else { localStorage.removeItem(KEY); replay(); }
+        mark();
+      });
+      document.body.appendChild(panel);
+      mark();
+    }
+
+    start();
   })();
 })();

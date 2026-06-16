@@ -136,14 +136,16 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: -0.01em;
   color: var(--muted);
   white-space: nowrap;
-  /* Clickable so a tap reopens the window (touch path). When the window is
-     open it sits behind it, so clicks land on the window instead. Not
-     selectable — it's decorative, not editable. */
-  pointer-events: auto;
+  /* Hidden until the window is actually closed — otherwise it peeks through
+     while the loader fades and the window grows open. When closed it's a tap
+     target to reopen (touch path). Not selectable — decorative, not editable. */
+  opacity: 0;
+  pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
-  transition: color 0.4s ease;
+  transition: color 0.4s ease, opacity 0.4s ease;
 }
+body.is-closed .closed-msg { opacity: 1; pointer-events: auto; }
 
 /* Cursor hint under the centre text: a subtle bouncing down-arrow that points
    to the dock you reveal by moving the cursor down. Desktop only; fades in a
@@ -587,6 +589,124 @@ body.scrubbing * { cursor: grabbing !important; user-select: none; }
 }
 .statusbar__zoom { background: var(--field-bg); }
 .statusbar__chevron { opacity: 0.7; }
+
+/* ============================================================
+   Load animation — content-gated old-Mac "opening"
+   A blank overlay + Photoshop progress bar holds while the gallery's media
+   actually decodes/buffers; only then does the window open (empty) and the
+   content paints in. The progress is REAL (driven by load events), never a
+   timer. Single style now — the window grows from the dock, mirroring the
+   close-to-dock minimise.
+   ============================================================ */
+
+.loader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--page-bg);
+  transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+body.is-loading .loader { opacity: 1; visibility: visible; }
+body:not(.is-loading) .loader { opacity: 0; visibility: hidden; pointer-events: none; }
+
+/* Window: hidden + docked while loading; grows up from the dock on open. */
+body.is-loading .window { opacity: 0; transform: translateY(34vh) scale(0.08); }
+body.is-opening .window {
+  opacity: 1;
+  transform: none;
+  transition: transform 0.78s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease;
+}
+
+/* The window opens EMPTY: hold the document content until the grow settles,
+   then paint it in — so the copy is never legible mid-grow. The chrome
+   (title bar, status bar, frame) rides up with the window as the empty shell. */
+body.is-loading .canvas > *,
+body.is-opening .canvas > * { opacity: 0; }
+body.content-paint .canvas > * { opacity: 1; transition: opacity 0.35s ease; }
+
+/* Reduced motion: no scale-grow — just gate the load and fade the window in. */
+@media (prefers-reduced-motion: reduce) {
+  body.is-loading .window { transform: none; }
+}
+
+/* --- Photoshop splash + real progress bar --- */
+.loader__splash {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(280px, 62vw);
+  font-family: "SF Pro", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  transition: opacity 0.2s ease;
+}
+/* On open, drop the bar at once so only the blank overlay dissolves into the window. */
+body.is-opening .loader__splash { opacity: 0; }
+.loader__file { font-size: 13px; font-weight: 500; letter-spacing: 0.01em; color: var(--chrome-text); }
+.loader__bar {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: var(--scroll-groove);
+  border: 1px solid var(--field-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.loader__fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0%;
+  background: var(--chrome-text);
+  transition: width 0.2s ease;
+}
+/* Indeterminate sweep while discovering what's in cms/ (before real progress). */
+body.is-scanning .loader__fill {
+  width: 32% !important;
+  animation: scan 1.1s ease-in-out infinite alternate;
+}
+@keyframes scan { from { transform: translateX(-40%); } to { transform: translateX(260%); } }
+.loader__status {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--chrome-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Dev panel (localhost only) — anim on/off + replay --- */
+.devpanel {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px;
+  background: rgba(20, 20, 22, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-family: "SF Mono", ui-monospace, Menlo, monospace;
+}
+.devpanel__title { font-size: 9px; letter-spacing: 0.12em; color: rgba(255, 255, 255, 0.5); padding: 0 4px; }
+.devpanel button {
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 4px 7px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.devpanel button:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.devpanel button.is-on { background: #fff; color: #111; }
+.devpanel__replay { color: #c8f000 !important; }
 
 /* ============================================================
    Responsive — tablet + phone (mirrors the main branch)

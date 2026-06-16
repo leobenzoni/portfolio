@@ -6,8 +6,22 @@
   <title>Leo Benzoni</title>
   <link rel="icon" type="image/png" href="assets/favicon.png" />
   <link rel="stylesheet" href="styles.css" />
+  <!-- No-JS: never trap the page behind the load overlay. -->
+  <noscript><style>.loader{display:none!important}body.is-loading .window{opacity:1!important;transform:none!important}</style></noscript>
 </head>
-<body>
+<body class="is-loading">
+
+  <!-- Load overlay: opaque from first paint so heavy gallery media decodes
+       behind it, then the window "opens" Mac-style. Style set by script.js via
+       body[data-load] (scale / zoom / splash). -->
+  <div id="loader" class="loader" aria-hidden="true">
+    <div class="loader__splash">
+      <span class="loader__file">img000000.jpg</span>
+      <span class="loader__bar"><span class="loader__fill"></span></span>
+      <span class="loader__status">loading…</span>
+    </div>
+  </div>
+
   <!-- Dead-centre of the viewport, behind the window. Only seen once the
        window is closed to the dock. Tapping it reopens (touch path). -->
   <p class="closed-msg" aria-hidden="true">Why would you close it?</p>
