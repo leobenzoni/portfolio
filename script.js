@@ -285,16 +285,15 @@
     else if (fromBottom <= 44 && dArmed) { body.classList.add("dock-peek"); }
   }, { passive: true });
 
-  /* ---------- Gallery: auto-load cms/ + 2-col masonry + placeholder floor ----------
-     Files dropped in cms/ are picked up by number (01, 02, ...; stops at the first
-     missing number). Real items fill from the top; grey placeholders pad up to MIN.
-     Images/video keep their natural aspect and pack into the shorter column (one
-     column on phones). Drop a file, refresh — it appears. */
+  /* ---------- Gallery: cms/ drop folder + 2-col masonry + placeholder floor ----------
+     Everything in cms/ shows up, newest first, as listed in cms/manifest.json
+     (tools/cms.mjs writes it and the pre-commit hook keeps it current; locally,
+     tools/serve.mjs builds it live). Grey placeholders pad up to MIN. Images and
+     video keep their natural aspect and pack into the shorter column (one column
+     on phones). Drop a file, refresh — it appears. */
   (function gallery() {
     if (!work) return;
-    const MIN = 10, MAX_PROBE = 60, GAP = 12, PH = 313 / 321; // PH = placeholder w/h
-    const EXTS = ["jpg", "jpeg", "png", "webp", "gif", "mp4", "webm"];
-    const VIDEO = new Set(["mp4", "webm"]);
+    const MIN = 10, GAP = 12, PH = 313 / 321; // PH = placeholder w/h
     const oneCol = () => window.matchMedia("(max-width: 640px)").matches;
     let TILES = [];
 
@@ -447,26 +446,16 @@
       )).then(pack);
     }
 
-    async function probe(n) {
-      const num = String(n).padStart(2, "0");
-      for (const ext of EXTS) {
-        const url = "cms/" + num + "." + ext;
-        try {
-          const r = await fetch(url, { method: "HEAD" });
-          if (r.ok) return { url: url, type: VIDEO.has(ext) ? "video" : "image", bytes: +(r.headers.get("content-length") || 0) };
-        } catch (e) {}
-      }
-      return null;
-    }
-
     render([]); // instant placeholders (no empty flash)
     (async () => {
-      const items = [];
-      for (let n = 1; n <= MAX_PROBE; n++) {
-        const it = await probe(n);
-        if (!it) break;
-        items.push(it);
-      }
+      // One request for the whole list (no guessing filenames one by one).
+      let items = [];
+      try {
+        const r = await fetch("cms/manifest.json", { cache: "no-cache" });
+        if (r.ok) items = (await r.json()).map((f) => ({
+          url: "cms/" + encodeURIComponent(f.file), type: f.type, bytes: f.bytes,
+        }));
+      } catch (e) {}
       _resolveItems(items);
       if (items.length) render(items);
       else _resolveReady();         // nothing to gate — let the overlay open
