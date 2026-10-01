@@ -1,0 +1,4 @@
+#!/bin/sh
+# The drop folder is the source of truth: whatever is in cms/ ships. Rebuild
+# its list (cms/manifest.json) and stage the folder before every commit.
+node tools/cms.mjs && git add cms
