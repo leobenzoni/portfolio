@@ -39,57 +39,6 @@
   setReadouts();
   setInterval(setReadouts, 10000);
 
-  /* ---------- Animated name (display only) ----------
-     Not editable. Every 5s it deletes back to "LEO" and retypes the other
-     form, toggling LEONARDO BENZONI <-> LEO BENZONI. The blinking ::after
-     caret rides at the end and sells the typing effect. */
-  const nameEl = document.querySelector(".name");
-  if (nameEl) {
-    // FLOOR = the name + its one trailing space; never deletable. Visitors
-    // type/delete freely after it. Deletes that reach into the floor are
-    // clamped back to it (so Cmd-backspace and select-all + delete just leave
-    // the original name) rather than blocked.
-    const FLOOR = nameEl.textContent;            // "LEONARDO BENZONI "
-    const FULL = FLOOR.replace(/ +$/, "");  // "LEONARDO BENZONI"
-    const TAIL = FLOOR.slice(FULL.length);   // the trailing space (kept so the caret stays put)
-    const SHORT = "LEO BENZONI";
-    let showingFull = true;
-
-    const setName = (s) => { nameEl.textContent = s; };
-    const bareName = () => {
-      const t = nameEl.textContent;
-      // Strip only the trailing space (TAIL); keep spaces inside the text being
-      // animated, e.g. the one in "LEO BENZONI".
-      return t.endsWith(TAIL) ? t.slice(0, t.length - TAIL.length) : t.replace(/\s+$/, "");
-    };
-    const commonLen = (a, b) => {
-      let i = 0;
-      while (i < a.length && i < b.length && a[i] === b[i]) i++;
-      return i;
-    };
-    function animateTo(targetName, done) {
-      const common = commonLen(bareName(), targetName);
-      const del = () => {
-        const c = bareName();
-        if (c.length > common) { setName(c.slice(0, -1) + TAIL); setTimeout(del, 45); }
-        else typeUp();
-      };
-      const typeUp = () => {
-        const c = bareName();
-        if (c.length < targetName.length) { setName(targetName.slice(0, c.length + 1) + TAIL); setTimeout(typeUp, 60); }
-        else if (done) done();
-      };
-      del();
-    }
-    function loop() {
-      animateTo(showingFull ? SHORT : FULL, () => {
-        showingFull = !showingFull;
-        setTimeout(loop, 5000);
-      });
-    }
-    setTimeout(loop, 5000);
-  }
-
   /* ---------- Cursor-driven window shadow ---------- */
   const win = document.querySelector(".window");
   if (win && window.matchMedia("(pointer: fine)").matches) {
@@ -262,7 +211,7 @@
     // Desktop: the cursor hint fades in a few seconds after closing. Touch: the
     // screen stays bare (just the message) until a tap brings the dock up.
     if (!touchLike()) {
-      hintTimer = setTimeout(() => body.classList.add("hint-show"), 5000);
+      hintTimer = setTimeout(() => body.classList.add("hint-show"), 2000);
     }
   }
   if (closeBtn) closeBtn.addEventListener("click", closeWindow);
@@ -469,18 +418,16 @@
      A blank overlay + Photoshop progress bar holds while the gallery's media
      ACTUALLY loads (window.__leoContent), then the window grows up from the
      dock — empty — and the content paints in. Progress is real (driven by load
-     events, weighted by byte size), never a timer. The dev panel (localhost)
-     toggles the animation off and replays it.                                  */
+     events, weighted by byte size), never a timer. The bar also never fills
+     faster than MIN_MS, so a fast connection still gets a short, smooth fill. */
   (function loader() {
     const overlay = document.getElementById("loader");
     if (!overlay) return;
-    const KEY = "leo-anim";
+    const MIN_MS = 920;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const fill = overlay.querySelector(".loader__fill");
     const fileLabel = overlay.querySelector(".loader__file");
     const status = overlay.querySelector(".loader__status");
-    let animOff = localStorage.getItem(KEY) === "off";
-    const isLocal = ["localhost", "127.0.0.1", ""].includes(location.hostname);
 
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     let opened = false;
@@ -489,17 +436,22 @@
       document.querySelectorAll(".work video").forEach((v) => { const p = v.play && v.play(); if (p) p.catch(() => {}); });
     }
     function paint() { body.classList.add("content-paint"); playVideos(); }
-    function snap() {        // reveal with no scale-grow (off / reduced-motion / bfcache)
+    function snap() {        // reveal with no scale-grow (reduced-motion / bfcache)
       opened = true;
       body.classList.remove("is-loading", "is-opening", "is-scanning");
       body.classList.add("loaded", "content-paint");
       playVideos();
     }
 
-    function setBar(p) {
-      p = Math.min(1, Math.max(0, p));
+    // The bar shows the real progress, capped by how much of MIN_MS has passed.
+    let real = 0, t0 = 0;
+    function setBar(p) { real = Math.min(1, Math.max(0, p)); }
+    function tick() {
+      if (opened) return;
+      const p = Math.min(real, (performance.now() - t0) / MIN_MS);
       if (fill) fill.style.width = (p * 100).toFixed(1) + "%";
-      if (status && !opened) status.textContent = "loading… " + Math.round(p * 100) + "%";
+      if (status) status.textContent = "loading… " + Math.round(p * 100) + "%";
+      requestAnimationFrame(tick);
     }
 
     function open() {
@@ -508,7 +460,7 @@
       body.classList.remove("is-scanning");
       if (fill) fill.style.width = "100%";
       if (status) status.textContent = "opening";
-      if (animOff || reduce) { snap(); return; }
+      if (reduce) { snap(); return; }
 
       body.classList.add("is-opening");
       body.classList.remove("is-loading");
@@ -528,9 +480,6 @@
 
     async function start() {
       if (fileLabel && fileDate) fileLabel.textContent = (fileDate.textContent || "img000000") + ".jpg";
-      // Dev "off": skip the overlay entirely (fast iteration). Production never sets it.
-      if (animOff) { snap(); return; }
-
       // Discovery: indeterminate sweep until we know what's in cms/.
       body.classList.add("is-scanning");
       if (status) status.textContent = "scanning…";
@@ -538,48 +487,20 @@
       const items = await Promise.race([window.__leoItemsReady || Promise.resolve([]), wait(DISCOVERY_CAP).then(() => [])]);
       body.classList.remove("is-scanning");
 
+      t0 = performance.now();
+      tick();
       const content = window.__leoContent;
-      if (!content || !items.length) { setBar(1); return open(); }
-
-      content.onProgress(setBar);
-      await content.ready;   // opens only when the media is truly loaded — each asset
-      open();                // settles, or (if dead) is dropped by its stall watchdog
-    }
-
-    function replay() {
-      opened = false;
-      body.classList.remove("loaded", "is-opening", "content-paint");
-      if (fill) fill.style.width = "100%";
-      if (status) status.textContent = "opening";
-      body.classList.add("is-loading");
-      void overlay.offsetWidth;          // restart transitions
-      setTimeout(open, 180);             // assets are cached — replay just the motion
+      if (content && items.length) {
+        content.onProgress(setBar);
+        await content.ready;   // each asset settles, or (if dead) is dropped by its stall watchdog
+      }
+      setBar(1);
+      await wait(Math.max(0, t0 + MIN_MS - performance.now()));
+      open();
     }
 
     // Back/forward cache: a restored page is already fully loaded — never re-trap it.
     window.addEventListener("pageshow", (e) => { if (e.persisted) snap(); });
-
-    // Dev panel — localhost only, never ships to leobenzoni.com.
-    if (isLocal) {
-      const panel = document.createElement("div");
-      panel.className = "devpanel";
-      panel.innerHTML = '<span class="devpanel__title">LOAD</span>' +
-        '<button data-s="on">on</button><button data-s="off">off</button>' +
-        '<button class="devpanel__replay" data-s="replay">replay</button>';
-      const mark = () => {
-        panel.querySelector('button[data-s="on"]').classList.toggle("is-on", !animOff);
-        panel.querySelector('button[data-s="off"]').classList.toggle("is-on", animOff);
-      };
-      panel.addEventListener("click", (e) => {
-        const b = e.target.closest("button"); if (!b) return;
-        if (b.dataset.s === "replay") { animOff = false; localStorage.removeItem(KEY); mark(); return replay(); }
-        animOff = b.dataset.s === "off";
-        if (animOff) { localStorage.setItem(KEY, "off"); snap(); } else { localStorage.removeItem(KEY); replay(); }
-        mark();
-      });
-      document.body.appendChild(panel);
-      mark();
-    }
 
     start();
   })();
